@@ -1,0 +1,131 @@
+Human Gut Microbiome Viewed Across Age and Geography
+====================================================
+
+## System information
+
+```{r DisplayInfo}
+require(cluster)
+sessionInfo()
+```
+
+# 16S rRNA data
+
+## Alpha diversity with age
+
+### Preprocessing...
+
+### Loading and preparing
+
+Read in files and init variables
+```{r Initialisation}
+theCountries <- c("USA", "Venezuela", "Malawi")
+theColors <- c("blue", "green", "red")
+names(theColors) <- theCountries
+alphaTable <- read.delim("local_copy/observed_species.csv")
+betaTable <- read.delim("local_copy/unweighted_unifrac_rarefaction_290000_4.txt")
+rownames(betaTable) <- betaTable[,1]; betaTable <- betaTable[,-1]
+theMetadata <- read.delim("local_copy/mapping.csv")
+rownames(theMetadata) <- theMetadata$X.SampleID
+colnames(theMetadata)
+```
+
+Define functions to select samples  
+```{r DefineFunctions}
+# get sample ids with label of specific value
+getGroupIDs <- function(label, value) {
+  theMetadata[theMetadata[,label] %in% value,]$X.SampleID
+}
+
+# get sample ids with label in numeric range
+getRangeIDs <- function(label, lower, upper) {
+  values <- theMetadata[,label]
+  theMetadata[values >= lower & values <= upper,]$X.SampleID
+}
+
+# get beta variance data for samples with given ids
+getBetaGroup <- function(label=NULL, value=NULL, range=FALSE, ids=NULL) {
+  if (length(ids) == 0) {
+    if (any(is.na(c(label,value)))) { # no input at all
+	  print("either label and value or ids required")
+	  return(c())
+	}
+	if (!range)	ids <- getGroupIDs(label, value)
+	else ids <- getRangeIDs(label, value[1], value[2])
+  }
+  betaTable[which(rownames(betaTable) %in% ids), which(colnames(betaTable) %in% ids)]
+}
+```
+<!-- usable sample sizes: 188517 377024 -->
+
+### UniFrac distance variation with age
+
+Nice plot in paper, but what exactly is plotted?  
+x-axis: age  
+y-axis: "UniFrac distance"
+* pairwise in age-bins?
+* each one against mean in age-bins?
+* something completely different?
+
+#### Plot each point against all others
+
+```{r DiversityChildToAdult}
+{
+    plot(NULL, NULL, xlim=c(0, 18), ylim=c(0.35, 0.85), xlab="age", ylab="UniFrac distance")
+    country <- list(
+        "USA" = getGroupIDs("Country", "USA"),
+        "Malawi" = getGroupIDs("Country", "Malawi"),
+        "Venezuela" = getGroupIDs("Country", "Venezuela")
+        )
+    adults <- list(
+        "USA" = intersect(country[["USA"]], getRangeIDs("Age", 19, 99)),
+        "Malawi" = intersect(country[["Malawi"]], getRangeIDs("Age", 19, 99)),
+        "Venezuela" = intersect(country[["Venezuela"]], getRangeIDs("Age", 19, 99))
+        )
+    children <- list(
+        "USA" = intersect(country[["USA"]], getRangeIDs("Age", 0, 18)),
+        "Malawi" = intersect(country[["Malawi"]], getRangeIDs("Age", 0, 18)),
+        "Venezuela" = intersect(country[["Venezuela"]], getRangeIDs("Age", 0, 18))
+        )
+    theColors <- list("USA"="blue", "Venezuela"="red", "Malawi"="green")
+    for (country in c("USA", "Malawi", "Venezuela")) {
+        for (child in children[[country]]) {
+            betadiv <- getBetaGroup(ids=c(child, adults[[country]]))
+            x <- theMetadata[theMetadata$X.SampleID==child,]$Age
+            y <- sum(betadiv[child,]) / (nrow(betadiv) - 1)
+            points(x, y, col=theColors[[country]], pch=20)
+        }
+    }
+    legend(x=14, y=1.0, legend=theCountries, text.col=theColors)
+}
+```
+
+## PCoA analysis of betadiversity
+
+```{r PCoA_Analysis}
+{
+    clu <- pam(betaTable, diss=TRUE, k=3, keep.diss=TRUE)
+    clusplot(clu, col.p=c("red","blue","green")[theMetadata[names(clu$clustering),]$Country], main="")
+    legend(x=0.1, y=-0.2, legend=theCountries, text.col=theColors)
+    # note: color order is different, because the pamobject$clustering vector has a different order
+    contTable <- table(clu$clustering, theMetadata[names(clu$clustering),]$Country)
+    contTable <- cbind(contTable[,2], contTable[,1], contTable[,3]) # correct order
+    contTable
+    sum(diag(contTable) / sum(contTable))
+}
+```
+
+# Bacterial diversity with age
+
+```{r BacterialDiversityWithAge}
+par(mfrow=c(1,2))
+for (rarefaction in c(188517, 377024)) {
+    alpha <- alphaTable[alphaTable$sequences.per.sample==rarefaction,][,4:ncol(alphaTable)]
+    counts <- colMeans(alpha)
+    names(counts) <- colnames(alpha)
+    summary(counts)
+    x <- theMetadata[names(counts),]$Age
+    cols <- c("green", "blue", "red")[theMetadata[names(counts),]$Country]
+    plot(x, counts, col=cols, pch=20, ylab="Number of OTUs", xlab="Age", lab=c(20, 6, 7), main=rarefaction)
+    legend(x=55, y=500, legend=theCountries, text.col=theColors)
+}
+```
