@@ -12,7 +12,21 @@ sessionInfo()
 
 ## Alpha diversity with age
 
-### Preprocessing...
+### Preprocessing (qiime tools)
+
+* *split\_libraries* already done
+* no mapping file -> recreation from supplemantary .xls table
+* different identificators -> recreate identificator strings from .fna files (*correct\_mapping\_ile.py*)
+  * result: *mapping.csv*
+* *pick\_closed\_reference* with parameters from original paper (very small wordlength), GreenGenes reference files
+* combine .biom OTU-tables so alpha- and beta-diversity scripts can be run
+* alpha:
+  * *alpha\_rarefaction*  for overview
+  * *multiple\_rarefaction\_even\_depth* to 290000 reads/sample (original: 290603)
+  * *alpha\_diversity* measure observed\_species
+  * *collate\_alpha* -> file *observed\_species.csv*
+* beta
+  * *beta\_diversity* with measures unifrac, weighted\_unifrac, GreenGenes reference tree -> files *(unweighted\_)unifrac\_rarefaction\_29000\_N.txt*
 
 ### Loading and preparing
 
@@ -62,11 +76,12 @@ getBetaGroup <- function(label=NULL, value=NULL, range=FALSE, ids=NULL) {
 Nice plot in paper, but what exactly is plotted?  
 x-axis: age  
 y-axis: "UniFrac distance"
-* pairwise in age-bins?
-* each one against mean in age-bins?
-* something completely different?
+explanation: children vs unrelated adults of each country
+So... mean of adults? median? some other measure?
+assumption: mean of adults (gives nice similarity in plot)
 
-#### Plot each point against all others
+
+#### Plot children against adults of same country (Todo: unrelated adults)
 
 ```{r DiversityChildToAdult}
 {
@@ -98,6 +113,8 @@ y-axis: "UniFrac distance"
     legend(x=14, y=1.0, legend=theCountries, text.col=theColors)
 }
 ```
+
+Where are the Malawians?
 
 ## PCoA analysis of betadiversity
 
