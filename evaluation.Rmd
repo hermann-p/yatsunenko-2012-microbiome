@@ -1,6 +1,5 @@
-% Title Human Gut Microbiome Viewed Across Age and Geography
-% Author Hermann Pauly
-
+% Human Gut Microbiome Viewed Across Age and Geography
+% Hermann Pauly
 
 ## System information
 
@@ -60,10 +59,11 @@ for fileName in ["16s_mapping_decimaldot.csv", "wgs_mapping_decimaldot.csv"]:
     checkSampleIDmapping(fileName)
 ~~~
 
+**Output:**  
 > checking 16s_mapping_decimaldot.csv --> read 528 samples, 0 errors  
 > checking wgs_mapping_decimaldot.csv --> read 110 samples, 0 errors  
 
-### \alpha and \beta diversity
+### $\alpha$ and $\beta$ diversity
 
 * *split\_libraries* already done
 * no mapping file -> recreation from supplemantary .xls table
@@ -86,31 +86,30 @@ for fileName in ["16s_mapping_decimaldot.csv", "wgs_mapping_decimaldot.csv"]:
 
 Read in files and init variables
 ```{r Initialisation}
-theCountries <- c("USA", "Venezuela", "Malawi")
-theColors <- c("blue", "green", "red")
+theCountries <- c("Malawi", "USA", "Venezuela")
+theColors <- c("red", "blue", "green")
 names(theColors) <- theCountries
 alphaTable <- read.delim("local_copy/observed_species.csv")
 betaTable <- read.delim("local_copy/unweighted_unifrac_rarefaction_290000_4.txt")
 rownames(betaTable) <- betaTable[,1]; betaTable <- betaTable[,-1]
-theMetadata <- read.delim("local_copy/mapping.csv")
+ # theMetadata <- read.delim("local_copy/mapping.csv")
+theMetadata <- read.delim("16s_mapping_decimaldot.csv")
 rownames(theMetadata) <- theMetadata$X.SampleID
 colnames(theMetadata)
 ```
 
 Define functions to select samples  
 ```{r DefineFunctions}
-# get sample ids with label of specific value
+ # get sample ids with label of specific value
 getGroupIDs <- function(label, value) {
   theMetadata[theMetadata[,label] %in% value,]$X.SampleID
 }
-
-# get sample ids with label in numeric range
+ # get sample ids with label in numeric range
 getRangeIDs <- function(label, lower, upper) {
   values <- theMetadata[,label]
   theMetadata[values >= lower & values <= upper,]$X.SampleID
 }
-
-# get beta variance data for samples with given ids
+ # get beta variance data for samples with given ids
 getBetaGroup <- function(label=NULL, value=NULL, range=FALSE, ids=NULL) {
   if (length(ids) == 0) {
     if (any(is.na(c(label,value)))) { # no input at all
@@ -137,7 +136,7 @@ assumption: mean of adults (gives nice similarity in plot)
 
 #### Plot children against adults of same country (Todo: unrelated adults)
 
-```{r DiversityChildToAdult}
+```{r DiversityChildToAdult, cache=TRUE}
 {
     plot(NULL, NULL, xlim=c(0, 18), ylim=c(0.35, 0.85), xlab="age", ylab="UniFrac distance")
     country <- list(
@@ -155,8 +154,7 @@ assumption: mean of adults (gives nice similarity in plot)
         "Malawi" = intersect(country[["Malawi"]], getRangeIDs("Age", 0, 18)),
         "Venezuela" = intersect(country[["Venezuela"]], getRangeIDs("Age", 0, 18))
         )
-    theColors <- list("USA"="blue", "Venezuela"="red", "Malawi"="green")
-    for (country in c("USA", "Malawi", "Venezuela")) {
+    for (country in theCountries) {
         for (child in children[[country]]) {
             betadiv <- getBetaGroup(ids=c(child, adults[[country]]))
             x <- theMetadata[theMetadata$X.SampleID==child,]$Age
@@ -174,7 +172,7 @@ How were they plotted in the publication?
 
 ## PCoA analysis of betadiversity
 
-```{r PCoA_Analysis}
+```{r Clustering, cache=TRUE}
 {
     clu <- pam(betaTable, diss=TRUE, k=3, keep.diss=TRUE)
     clusplot(clu, col.p=c("red","blue","green")[theMetadata[names(clu$clustering),]$Country], main="")
@@ -186,6 +184,73 @@ How were they plotted in the publication?
     sum(diag(contTable) / sum(contTable))
 }
 ```
+
+## Classificator analysis of \beta-diversity
+
+### Classification with absolute OTU counts
+
+```{r Classifiers, cache=TRUE}
+require(e1071)
+species <- read.delim("local_copy/combined.csv", sep="\t", header=TRUE)
+rownames(species) <- species[,1]
+species <- species[,-1]
+species <- t(species) # now rows = samples, cols = OTU counts
+
+reps <- 20
+L <- nrow(species)
+N <- L / reps
+NPredictors <- 50
+allOfThem <- 1:L
+strength <- rep(0, len=reps)
+
+for (i in 1:reps) {
+    testSet <- sample(allOfThem, N)
+    allOfThem <- allOfThem[-testSet]
+    training <- c(1:L)[-testSet]
+    variances <- apply(species[training,], 2, var)
+    topVariables <- order(variances, decreasing=TRUE)[1:NPredictors]
+    trnNames <- rownames(species)[training]
+    tstNames <- rownames(species)[testSet]
+
+    model <- svm(x=species[training,topVariables], y=theMetadata[trnNames,]$Country)
+    prediction <- predict(model, species[testSet,topVariables])
+    contingency <- table(prediction, theMetadata[tstNames,]$Country)
+    strength[i] <- sum(diag(contingency)) / sum(contingency)
+}
+
+print(median(strength))
+```
+
+### Classification with relative OTU abundances
+
+```{r ClassifiersNormalized, cache=TRUE}
+ #theSums <- rowSums(species)
+ #for (i in 1:L) {
+ #	species[i,] <- species[i,] / theSums[i]
+ #}
+species <- apply(species, 2, function(x) x <- x / sum(x))
+
+allOfThem <- 1:L
+strength <- rep(0, len=reps)
+
+for (i in 1:reps) {
+    testSet <- sample(allOfThem, N)
+    allOfThem <- allOfThem[-testSet]
+    training <- c(1:L)[-testSet]
+    variances <- apply(species[training,], 2, var)
+    topVariables <- order(variances, decreasing=TRUE)[1:NPredictors]
+    trnNames <- rownames(species)[training]
+    tstNames <- rownames(species)[testSet]
+
+    model <- svm(x=species[training,topVariables], y=theMetadata[trnNames,]$Country)
+    prediction <- predict(model, species[testSet,topVariables])
+    contingency <- table(prediction, theMetadata[tstNames,]$Country)
+    strength[i] <- sum(diag(contingency)) / sum(contingency)
+}
+
+print(median(strength))
+```
+
 
 # Bacterial diversity with age
 
