@@ -1,7 +1,10 @@
-RSCRIPT=/psi/R-3.0.1/R-3.0.1/bin/Rscript
+RSCRIPT=R
+PANDOC=~/.cabal/bin/pandoc
 
-all: evaluation.Rmd
+all: evaluation.md
+
+evaluation.md: evaluation.Rmd
 	$(RSCRIPT) -e "require(knitr); knit2html(\"evaluation.Rmd\")"
 
 pdf: evaluation.md
-	pandoc -s evaluation.md -t latex -o evaluation.pdf
+	$(PANDOC) -s -S --biblio evaluation.bib --csl citationstyle.csl evaluation.md -t latex -o evaluation.pdf
