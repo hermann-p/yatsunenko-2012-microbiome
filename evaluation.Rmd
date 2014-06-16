@@ -1,4 +1,4 @@
-% Human Gut Microbiome Viewed Across Age and Geography
+% Reproduction of "Human Gut Microbiome Viewed Across Age and Geography"
 % Hermann Pauly
 % \today
 
@@ -10,7 +10,22 @@ Soon to come...
 Introduction
 ========
 
-Hello fellow reader, I'm a document.
+In science we try to produce reliable and unambigous results, working hard to avoid
+common pitfalls and sloppy word, and we expect the same from our fellow scientists.
+Nevertheless, an unacceptable number of publications *(numbers)* contain grave errors
+*(quote needed)*, which has lead to waning trust in science, among scientists as well
+as in the general public. One feature of trustworthy scientific work is
+reproducability. If a second person with proper knowledge analyses a researchers' data
+and finds the same results, this is an indicator that the first scientist did work
+correctly. *(or both are wrong ;-) )*  
+Here I work on the data Yasunenko et al published in 2012 along with their publication
+"Human Gut Microbiome Viewed Across Age and Geography" in Nature magazine.
+They sequenced genomic data of fecal samples from participants hailing from three
+different countries. Using ANOVA post hoc testing they found significant diversities
+among ages, geographic locations and families (see [@Yats12]).
+I recreated calculations, data processing, and data visualisation following the
+descriptions given in the original paper to check if their findings and conclusions
+can be reproduced knowing nothing more than the published sequencer data.
 
 Methods and results
 ==============
@@ -24,28 +39,26 @@ sessionInfo()
 ```
 -->
 
-16S rRNA data
--------------
+## Data aquisition ##
 
-### Data aquisition ###
-
-I downloaded the raw data and metadata files from -[@MG-RAST] using the
+I downloaded the raw data and metadata files from MG-RAST[@MG-RAST] using the
 UNIX command line tool *wget*.
 
-### Preprocessing ###
+## Preprocessing ##
 
-#### Metadata mapping files ####
+### Metadata mapping files ###
 
 To categorize and compare genome data, a link between sequenced sample
-files and their respective metadata is required. [@MG-RAST] provides a
+files and their respective metadata is required. The MG-RAST database [@MG-RAST]
+provides a
 mapping file between sample data files and unique IDs with incomplete
-metadata, while [@Yats12] provide complete metadata file without
+metadata, while Yatsunenko et al [@Yats12] provide a complete metadata file without
 mapping to the sample data files. I applied the "calc" module of the
 *LibreOffice* suite to combine the contents of both files to a
 complete mapping file. For this I sorted both provided files' contents
 by their sample ID strings and copy-pasted missing rows from the
 MG-RAST mapping file into the metadata table. Two entries from the
-mapping file were not found in the metadata table, and [@Yats12] also
+mapping file were not found in the metadata table, and Yatsunenko et al also
 stated that two samples could not be used in the analysis, so I
 removed them from the metadata-mapping file. The result was saved as a
 tab-seperated .csv file. On my system with German environment settings
@@ -59,6 +72,8 @@ sed 's/,/\./g' 16s_mapping.csv > 16s_mapping_decimaldot.csv
 The unique sequencer IDs differed from the sample IDs only by a
 numerical appendix, so I used a Python script to check if all samples
 were matched correctly:
+
+TODO: move out to .py file
 
 ~~~python
 def checkSampleIDmapping(fileName):
@@ -91,7 +106,7 @@ Calling the script produced the following output:
     checking 16s_mapping_decimaldot.csv --> read 528 samples, 0 errors
 	checking wgs_mapping_decimaldot.csv --> read 110 samples, 0 errors  
 
-#### $\alpha$- and $\beta$ diversity ####
+### $\alpha$- and $\beta$ diversity ###
 
 Using the supported data and the manually created metadata mapping
 table, I followed the QIIME workflow to create tables of OTU
@@ -102,7 +117,8 @@ into groups by phylogenetic distance. This step is called "picking". To
 do this, I used the QIIME tool *pick\_closed\_reference.py*, which
 compares the samples to an existing similarity tree. As picking
 reference I used the GreenGenes database from 2011-02-04 and a
-similarity threshold of 97%, as did [@Yats12]. The picking was done on
+similarity threshold of 97%, as did Yatsunenko et al [@Yats12].
+The picking was done on
 each sample individually, ten samples in parallel at any time, by
 using the custom Python script *picking.py*.
 
@@ -143,7 +159,7 @@ tables, each with weighted and unweighted UniFrac distances as a
 measure. The resulting files are called
 \texttt{(unweighted\_)unifrac\_rarefaction\_290000\_N.txt}.
 
-#### Load data from preprocessed files ####
+### Load data from preprocessed files ###
 
 ```{r Initialisation}
 theCountries <- c("Malawi", "USA", "Venezuela")
@@ -235,15 +251,14 @@ I used the *pam* function from the *R* package *cluster* to repeat the
 process.
 
 ```{r Clustering, cache=TRUE}
-
 clu <- pam(betaTable, diss=TRUE, k=3, keep.diss=TRUE)
 clusplot(clu, col.p=c("red","blue","green")[theMetadata[names(clu$clustering),]$Country], main="")
 legend(x=0.1, y=-0.2, legend=theCountries, text.col=theColors)
-# note: color order is different, because the pamobject$clustering vector has a different order
+ # note: color order is different, because the pamobject$clustering vector has a different order
 contTable <- table(clu$clustering, theMetadata[names(clu$clustering),]$Country)
 contTable <- cbind(contTable[,2], contTable[,1], contTable[,3]) # correct order
-contTable
-sum(diag(contTable) / sum(contTable))
+pam.result <- sum(diag(contTable) / sum(contTable))
+print(pam.result)
 ```
 
 The plot shows a seperated, banana-shaped distribution of US Americans
@@ -257,7 +272,7 @@ assignment.
 The PCoA plot (fig. 2) suggested that discrimination of samples by
 microbiome diversity is possible. To improve the assignment I used the
 implementation of support vector machines (SVM) in the *R* package
-*e1071*. Support vector machines classify multi-dimensional datasets
+*e1071*[@e1071]. Support vector machines classify multi-dimensional datasets
 by finding a hyperplane that seperates the classes among (a subset
 of) their features. It solves the problem of seemingly inseperable
 datasets by applying a "kernel function" that adds additional
@@ -265,107 +280,75 @@ dimensions to the data's used features.
 
 I trained a SVM to discriminate the dataset by different subsets of the
 OTUs that showed the greatest variance and compared the predicted
-samples with their countries of origin, using tenfold cross validation.
+samples with their countries of origin, using 20-fold cross validation.
 
 ```{r Classifiers, cache=TRUE}
 require(e1071)
 species <- read.delim("local_copy/combined.csv", sep="\t", header=TRUE)
 rownames(species) <- species[,1]
-species <- species[,-1]
-species <- t(species) # now rows = samples, cols = OTU counts
- 
-reps <- 20
+species <- species[,-1] # species level OTU table
+species <- t(species)   # now rows = samples, cols = OTU counts
+reps <- 20              # number of repetitions for cross validation
 L <- nrow(species)
-N <- L / reps
-NPredictors <- 50
-allOfThem <- 1:L
-strength <- rep(0, len=reps)
-
-for (i in 1:reps) {
-    testSet <- sample(allOfThem, N)
-    allOfThem <- allOfThem[-testSet]
-    training <- c(1:L)[-testSet]
-    variances <- apply(species[training,], 2, var)
-    topVariables <- order(variances, decreasing=TRUE)[1:NPredictors]
-    trnNames <- rownames(species)[training]
-    tstNames <- rownames(species)[testSet]
-
-    model <- svm(x=species[training,topVariables], y=theMetadata[trnNames,]$Country)
-    prediction <- predict(model, species[testSet,topVariables])
-    contingency <- table(prediction, theMetadata[tstNames,]$Country)
-    strength[i] <- sum(diag(contingency)) / sum(contingency)
+N <- L / reps           # number of samples per validation run
+featureSizes <- c(1:5, seq(10, 500, len=10), ncol(species)) # 
+strength <- matrix(0, nrow=reps, ncol=length(featureSizes))
+for (j in 1:length(featureSizes)) {
+	allOfThem <- 1:L    # available samples
+	for (i in 1:reps) {
+		testSet <- sample(allOfThem, N)
+		allOfThem <- allOfThem[-testSet]
+		training <- c(1:L)[-testSet]
+		variances <- apply(species[training,], 2, var)
+		topVariables <- order(variances, decreasing=TRUE)
+		topVariables <- topVariables[1:featureSizes[j]]
+		trnNames <- rownames(species)[training]
+		tstNames <- rownames(species)[testSet]
+		model <- svm(x=species[training,topVariables], y=theMetadata[trnNames,]$Country);
+		prediction <- predict(model, species[testSet,topVariables])
+		contingency <- table(prediction, theMetadata[tstNames,]$Country)
+		strength[i,j] <- sum(diag(contingency)) / sum(contingency)
+	}
 }
-
-print(median(strength))
+boxplot(strength, xlab="number of features", ylab="prediction success", axes=FALSE)
+abline(h=pam.result, col="blue")
+axis(side=1, at=1:length(featureSizes), labels=as.integer(featureSizes), las=2)
+axis(side=2, at=seq(from=0, to=1.2, by=0.2))
 ```
+<!-- all hail the cache=TRUE parameter! -->
 
-TODO: vary feature size, use full size
-
-#### Classification with relative OTU abundances
-
-```{r ClassifiersNormalized, cache=TRUE, echo=FALSE}
-species <- apply(species, 2, function(x) x <- x / sum(x))
-
-allOfThem <- 1:L
-strength <- rep(0, len=reps)
-
-for (i in 1:reps) {
-    testSet <- sample(allOfThem, N)
-    allOfThem <- allOfThem[-testSet]
-    training <- c(1:L)[-testSet]
-    variances <- apply(species[training,], 2, var)
-    topVariables <- order(variances, decreasing=TRUE)[1:NPredictors]
-    trnNames <- rownames(species)[training]
-    tstNames <- rownames(species)[testSet]
-
-    model <- svm(x=species[training,topVariables], y=theMetadata[trnNames,]$Country)
-    prediction <- predict(model, species[testSet,topVariables])
-    contingency <- table(prediction, theMetadata[tstNames,]$Country)
-    strength[i] <- sum(diag(contingency)) / sum(contingency)
-}
-
-print(median(strength))
-```
-
+Figure 4 shows barplots of SVM-classifier prediction of the 16S dataset. X-axis
+describes the number of features used. The features were selected by greatest
+variance. A blue horizontal line shows the prediction success of PAM clustering for
+comparison.
 
 ### Bacterial diversity with age ###
 
-[@Yats12] found that the number of OTUs inside the fecal samples
-increased with age. To verify this I calculated the means of OTU
-counts found in the ten rarefaction steps for each sample and plotted
-it against each samples' age.
+Yatsunenko et al found that the number of OTUs inside the fecal samples
+increased with age[@Yats12]. To verify this I calculated the means of OTU
+counts found in the ten rarefaction repetitions for each sample and plotted
+them against each samples' age.
 
 ```{r BacterialDiversityWithAge}
-for (rarefaction in c(188517, 377024)) {
-    alpha <-alphaTable[alphaTable$sequences.per.sample==rarefaction,][,4:ncol(alphaTable)]
-	dma <- data.matrix(alpha)
-	y <- rep(0.0, length=ncol(dma)*nrow(dma))
-    counts <- colMeans(data.matrix(alpha))
-    names(counts) <- colnames(alpha)
-    x <- theMetadata[names(counts),]$Age
-    cols <- c("green", "blue", "red")[theMetadata[names(counts),]$Country]
-    plot(x, counts, col=cols, pch=20, ylab="Number of OTUs", xlab="Age", lab=c(20, 6, 7), main=rarefaction)
-    legend(x=55, y=500, legend=theCountries, text.col=theColors)
- }
-```x
+rarefaction <- 188517
+alpha <-alphaTable[alphaTable$sequences.per.sample==rarefaction,][,4:ncol(alphaTable)]
+counts <- colMeans(data.matrix(alpha))
+names(counts) <- colnames(alpha)
+x <- theMetadata[names(counts),]$Age
+cols <- c("green", "blue", "red")[theMetadata[names(counts),]$Country]
+plot(x, counts, col=cols, pch=20, ylab="Number of OTUs", xlab="Age", lab=c(20, 6, 7))
+legend(x=55, y=500, legend=theCountries, text.col=theColors)
+```
 
-TODO: WTF??? This works on the Linux box!
+The plot shows an increasing number of OTUs with increasing age (fig. 4).
 
-The plot shows an increasing number of OTUs with increasing age. Note
-that there are no values for Malawians in the middle age range.
+### Processing of whole genome shotgun sequence data ###
 
-WGS shotgun sequences
------------------------
-
-## Mapping data ##
-
-Manually created extended metadata mapping table as with 16S genome
-
-## Preprocessing ##
-
-* Paper: "preprocessing was done using custom Perl scripts and publicly available software tools"
-* Filtering for degenerate sequences, duplicates: possible with custom script, but huge amounts of cpu time needed
-* Further preprocessing unknown
+*   Paper: "preprocessing was done using custom Perl scripts and publicly available
+    software tools"
+*   Filtering for degenerate sequences, duplicates: possible with custom script, but
+    huge amounts of cpu time needed
+*   Further preprocessing unknown
 
 Decisions
 
@@ -375,27 +358,50 @@ Decisions
     MG-RAST (.stats files)
 *   try to recreate findings with this (different?) data
 *   found that even improved mapping files could not identify samples
-    ->  decided to leat that part out
+    ->  decided to ignore that part
 
 Discussion
-=======
+==========
 
 Feel free to speak your mind.
 
+Pro:
+
+*   16S data analysis can be reproduced very well, plots virtually identical
+*   conclusions very plausible
+*   vast supplementary data available, so recreation of sample mapping possible
+
+Con:
+
+*   some minor vaguenesses in the description (eg "distance to all adults")
+*   missing mapping files: this analysis relies very heavily on the mapping
+    between samples and their metadata
+*   no meaningful reproduction of WGS data possible due to lacking mapping file
+    (Gigabytes of data useless because of one metafile)
+*   switch from good description and documentation of 16S data to general,
+	useless statements for WGS analysis ("custom scripts and publicly available
+	tools")
+*   PAM clustering of beta-div not very meaningful, SVM proved a lot better
+
 Software used
-==========
+=============
+
+TODO: Integrate properly into methods
 
 The metadata mapping files were created using *LibreOffice* software
 suite version 4.2.4.2.  
 The QIIME workflow was followed using the *QIIME* suite of software
-tools, version 1.8.0 as described by [@QIIME].  
+tools, version 1.8.0 as described by Caporaso et al[@QIIME].  
 Data analysis and visualization was done using the *R* statistical sofware
-version 3.1.0 [-@R], the package *cluster* by [@cluster] for partitioning around medoids
-and the package *e1071* by [@e1071] for support vector machine classifiers.  
+version 3.1.0 [-@R], the package *cluster* by Maechler et al[@cluster] for
+partitioning around medoids
+and the package *e1071* by Meyer et al[@e1071] for support vector machine
+classifiers.  
 The custom Python scripts mentioned in the scope of this document can
 be found on
 [my github page](https://github.com/hermann-p/yatsunenko-2012-microbiome).
 
 References
-========
+==========
 
+<!-- auto-filled by pandoc-citeproc -->
