@@ -336,18 +336,18 @@ counts found in the ten rarefaction steps for each sample and plotted
 it against each samples' age.
 
 ```{r BacterialDiversityWithAge}
-par(mfrow=c(1,2))
 for (rarefaction in c(188517, 377024)) {
-    alpha <- alphaTable[alphaTable$sequences.per.sample==rarefaction,][,4:ncol(alphaTable)]
-    counts <- colMeans(alpha)
+    alpha <-alphaTable[alphaTable$sequences.per.sample==rarefaction,][,4:ncol(alphaTable)]
+	dma <- data.matrix(alpha)
+	y <- rep(0.0, length=ncol(dma)*nrow(dma))
+    counts <- colMeans(data.matrix(alpha))
     names(counts) <- colnames(alpha)
-    summary(counts)
     x <- theMetadata[names(counts),]$Age
     cols <- c("green", "blue", "red")[theMetadata[names(counts),]$Country]
     plot(x, counts, col=cols, pch=20, ylab="Number of OTUs", xlab="Age", lab=c(20, 6, 7), main=rarefaction)
     legend(x=55, y=500, legend=theCountries, text.col=theColors)
-}
-```
+ }
+```x
 
 TODO: WTF??? This works on the Linux box!
 
