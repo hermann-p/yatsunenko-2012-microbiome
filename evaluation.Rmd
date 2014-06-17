@@ -11,14 +11,14 @@ Introduction
 ========
 
 In science we try to produce reliable and unambigous results, working hard to avoid
-common pitfalls and sloppy word, and we expect the same from our fellow scientists.
+common pitfalls and sloppy work, and we expect the same from our fellow scientists.
 Nevertheless, an unacceptable number of publications *(numbers)* contain grave errors
 *(quote needed)*, which has lead to waning trust in science, among scientists as well
 as in the general public. One feature of trustworthy scientific work is
 reproducability. If a second person with proper knowledge analyses a researchers' data
 and finds the same results, this is an indicator that the first scientist did work
 correctly. *(or both are wrong ;-) )*  
-Here I work on the data Yasunenko et al published in 2012 along with their publication
+Here I work on the data Yasunenko et al. published in 2012 along with their publication
 "Human Gut Microbiome Viewed Across Age and Geography" in Nature magazine.
 They sequenced genomic data of fecal samples from participants hailing from three
 different countries. Using ANOVA post hoc testing they found significant diversities
@@ -42,7 +42,8 @@ sessionInfo()
 ## Data aquisition ##
 
 I downloaded the raw data and metadata files from MG-RAST[@MG-RAST] using the
-UNIX command line tool *wget*.
+UNIX command line tool *wget*. They can be found under project ID
+numbers 98 (whole genome shotgun sequences) and 401 (16S rRNA V4 sequences).
 
 ## Preprocessing ##
 
@@ -52,18 +53,18 @@ To categorize and compare genome data, a link between sequenced sample
 files and their respective metadata is required. The MG-RAST database [@MG-RAST]
 provides a
 mapping file between sample data files and unique IDs with incomplete
-metadata, while Yatsunenko et al [@Yats12] provide a complete metadata file without
+metadata, while Yatsunenko et al. [@Yats12] provide a complete metadata file without
 mapping to the sample data files. I applied the "calc" module of the
 *LibreOffice* suite to combine the contents of both files to a
 complete mapping file. For this I sorted both provided files' contents
 by their sample ID strings and copy-pasted missing rows from the
 MG-RAST mapping file into the metadata table. Two entries from the
-mapping file were not found in the metadata table, and Yatsunenko et al also
+mapping file were not found in the metadata table, and Yatsunenko et al. also
 stated that two samples could not be used in the analysis, so I
 removed them from the metadata-mapping file. The result was saved as a
-tab-seperated .csv file. On my system with German environment settings
-I had to convert decimal values from comma-seperated values to
-international dot-seperated format using the command line tool *sed*:
+tab-separated .csv file. On my system with German environment settings
+I had to convert decimal values from comma-separated values to
+international dot-separated format using the command line tool *sed*:
 
 ```
 sed 's/,/\./g' 16s_mapping.csv > 16s_mapping_decimaldot.csv
@@ -117,7 +118,7 @@ into groups by phylogenetic distance. This step is called "picking". To
 do this, I used the QIIME tool *pick\_closed\_reference.py*, which
 compares the samples to an existing similarity tree. As picking
 reference I used the GreenGenes database from 2011-02-04 and a
-similarity threshold of 97%, as did Yatsunenko et al [@Yats12].
+similarity threshold of 97%, as did Yatsunenko et al. [@Yats12].
 The picking was done on
 each sample individually, ten samples in parallel at any time, by
 using the custom Python script *picking.py*.
@@ -129,7 +130,7 @@ tables exceeded the computational power available, so I used the
 custom Python script *combine.py* which creates a shell script that
 calls the QIIME tool *merge\_otu\_tables.py* to iteratively add
 sample tables to a common table. A copy of this table was converted to
-a tab-seperated file (\texttt{combined.csv}) for easy use with *R*.
+a tab-separated file (\texttt{combined.csv}) for easy use with *R*.
 
 The following steps were all done with QIIME tools. To assess species
 richness from the samples, the "rarefaction" technique is used. A
@@ -139,10 +140,10 @@ while keeping the sample size as small as possible and as big as
 necessary. I used *alpha\_rarefaction.py* to create an overview of
 suitable rarefaction depths.  
 (TODO: nice rarefaction image here)
-The read numbers per sample ranged from 305631 to 5826936, with a mean
-of 1932291 and a median of 1884081. To guarantee that all samples are
+The read numbers per sample ranged from 305,631 to 5,826,936, with a mean
+of 1,932,291 and a median of 1,884,081. To guarantee that all samples are
 represented and each one is subsampled I chose a rarefaction depth of
-290000 (as compared to 290603 in the original publication), which is
+290,000 (as compared to 290,603 in the original publication), which is
 less than the smallest sample's read count. I repeated the
 rarefactioning ten times, using the tool
 *multiple\_rarefaction\_even\_depth.py*.
@@ -160,6 +161,9 @@ measure. The resulting files are called
 \texttt{(unweighted\_)unifrac\_rarefaction\_290000\_N.txt}.
 
 ### Load data from preprocessed files ###
+
+I loaded the data files created by the previous steps 3.2.1 and 3.2.2
+and created convenience access methods.
 
 ```{r Initialisation}
 theCountries <- c("Malawi", "USA", "Venezuela")
@@ -193,14 +197,19 @@ getBetaGroup <- function(label=NULL, value=NULL, range=FALSE, ids=NULL) {
   betaTable[which(rownames(betaTable) %in% ids), which(colnames(betaTable) %in% ids)]
 }
 ```
-<!-- usable sample sizes: 188517 377024 -->
+
+In this document, only one of 20 possible beta diversity matrices is
+loaded. The others were also processed, and the produced clusterings
+were very similar to the one shown here (see 3.2.5).
+
+<!-- Usable sample sizes: 188517 or lower -->
 
 ### UniFrac distance variation with age ###
 
-[@Yats12] observed the change of microbiome composition from
+Yatsunenko et al. observed the change of microbiome composition from
 infant-specific to adult configuration by comparing the composition of
 each child's microbiome against the microbiome composition of all adults from the
-same country. As it is not completely clear how the distance to all
+same country [@Yats12]. As it is not completely clear how the distance to all
 adults was calculated I chose to use the mean of distances of the
 child to each adult.
 
@@ -240,13 +249,13 @@ steadily low until adulthood (see fig. 1).
 ### PCoA analysis of betadiversity
 
 Partitioning Around Medoids (PAM) is a method of clustering data
-points into a given number k of groups. It minimizes a global distance
-function by randomly assigning one data point as starting center for
-each group, iteratively swapping points and centers and assigning all
-data points to the nearest center.
-[@Yats12] used the $\beta$-distance matrix as a one-dimensional
+points into a given number k of groups. I initially assigns a data
+point as center for each of the groups and then minimizes a global distance
+function by iteratively swapping points and centers and assigning all
+data points to the nearest new center.
+Yatsunenko et al. used the $\beta$-distance matrix as a one-dimensional
 dissimilarity measure for the PAM algorithm and chose k=3 clusters to
-refind the samples' countries of origin in the microbiome composition.
+refind the samples' countries of origin in the microbiome composition [@Yats12].
 I used the *pam* function from the *R* package *cluster* to repeat the
 process.
 
@@ -261,19 +270,21 @@ pam.result <- sum(diag(contTable) / sum(contTable))
 print(pam.result)
 ```
 
-The plot shows a seperated, banana-shaped distribution of US Americans
+Figure 2: Colors follow the real countries of origin, while symbols denote the
+country-clusters predicted by PAM.
+The plot shows a separated, banana-shaped distribution of US Americans
 and intermingled groups of Malawians and Venezuelans with
-concentrations for each subgroups (see fig. 2). Using different
-rarefaction tables showed similar results of circa 84 per cent correct
+concentrations for each subgroups. Using different
+rarefaction tables showed the same results of circa 84 per cent correct
 assignment.
 
 ### SVM classificator analysis of $\beta$-diversity ###
 
-The PCoA plot (fig. 2) suggested that discrimination of samples by
+The PCoA plot suggested that discrimination of samples by
 microbiome diversity is possible. To improve the assignment I used the
 implementation of support vector machines (SVM) in the *R* package
-*e1071*[@e1071]. Support vector machines classify multi-dimensional datasets
-by finding a hyperplane that seperates the classes among (a subset
+*e1071* [@e1071]. Support vector machines classify multi-dimensional datasets
+by finding a hyperplane that separates the classes among (a subset
 of) their features. It solves the problem of seemingly inseperable
 datasets by applying a "kernel function" that adds additional
 dimensions to the data's used features.
@@ -315,17 +326,21 @@ abline(h=pam.result, col="blue")
 axis(side=1, at=1:length(featureSizes), labels=as.integer(featureSizes), las=2)
 axis(side=2, at=seq(from=0, to=1.2, by=0.2))
 ```
-<!-- all hail the cache=TRUE parameter! -->
+<!-- all hail to the cache=TRUE parameter! -->
 
 Figure 4 shows barplots of SVM-classifier prediction of the 16S dataset. X-axis
 describes the number of features used. The features were selected by greatest
 variance. A blue horizontal line shows the prediction success of PAM clustering for
 comparison.
 
+TODO: Draw evenly from all populations according to their
+size. Improve feature sizes, include 90, as stated in the paper. Maybe
+use p-values instead of variances (will be even slower).
+
 ### Bacterial diversity with age ###
 
-Yatsunenko et al found that the number of OTUs inside the fecal samples
-increased with age[@Yats12]. To verify this I calculated the means of OTU
+Yatsunenko et al. found that the number of OTUs inside the fecal samples
+increased with age [@Yats12]. To verify this I calculated the means of OTU
 counts found in the ten rarefaction repetitions for each sample and plotted
 them against each samples' age.
 
@@ -339,6 +354,9 @@ cols <- c("green", "blue", "red")[theMetadata[names(counts),]$Country]
 plot(x, counts, col=cols, pch=20, ylab="Number of OTUs", xlab="Age", lab=c(20, 6, 7))
 legend(x=55, y=500, legend=theCountries, text.col=theColors)
 ```
+
+TODO: Recompile on linux box, where the data doesn't "drop to the
+floor". Find out, why these conversion errors appear on the Mac only.
 
 The plot shows an increasing number of OTUs with increasing age (fig. 4).
 
@@ -360,10 +378,10 @@ Decisions
 *   found that even improved mapping files could not identify samples
     ->  decided to ignore that part
 
+\clearpage
+
 Discussion
 ==========
-
-Feel free to speak your mind.
 
 Pro:
 
@@ -391,11 +409,11 @@ TODO: Integrate properly into methods
 The metadata mapping files were created using *LibreOffice* software
 suite version 4.2.4.2.  
 The QIIME workflow was followed using the *QIIME* suite of software
-tools, version 1.8.0 as described by Caporaso et al[@QIIME].  
+tools, version 1.8.0 as described by Caporaso et al. [@QIIME].  
 Data analysis and visualization was done using the *R* statistical sofware
-version 3.1.0 [-@R], the package *cluster* by Maechler et al[@cluster] for
+version 3.1.0 [@R], the package *cluster* by Maechler et al. [@cluster] for
 partitioning around medoids
-and the package *e1071* by Meyer et al[@e1071] for support vector machine
+and the package *e1071* by Meyer et al. [@e1071] for support vector machine
 classifiers.  
 The custom Python scripts mentioned in the scope of this document can
 be found on
