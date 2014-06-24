@@ -34,6 +34,7 @@ Methods and results
 ## System information
 
 ```{r DisplayInfo}
+options(warn=-1)
 require(cluster)
 sessionInfo()
 ```
@@ -53,14 +54,14 @@ To categorize and compare genome data, a link between sequenced sample
 files and their respective metadata is required. The MG-RAST database [@MG-RAST]
 provides a
 mapping file between sample data files and unique IDs with incomplete
-metadata, while Yatsunenko et al. [@Yats12] provide a complete metadata file without
+metadata, while Yatsunenko et al. provide a complete metadata file without
 mapping to the sample data files. I applied the "calc" module of the
 *LibreOffice* suite to combine the contents of both files to a
 complete mapping file. For this I sorted both provided files' contents
 by their sample ID strings and copy-pasted missing rows from the
 MG-RAST mapping file into the metadata table. Two entries from the
 mapping file were not found in the metadata table, and Yatsunenko et al. also
-stated that two samples could not be used in the analysis, so I
+stated that two samples could not be used in the analysis [@Yats12], so I
 removed them from the metadata-mapping file. The result was saved as a
 tab-separated .csv file. On my system with German environment settings
 I had to convert decimal values from comma-separated values to
@@ -71,38 +72,9 @@ sed 's/,/\./g' 16s_mapping.csv > 16s_mapping_decimaldot.csv
 ```
 
 The unique sequencer IDs differed from the sample IDs only by a
-numerical appendix, so I used a Python script to check if all samples
-were matched correctly:
-
-TODO: move out to .py file
-
-~~~python
-def checkSampleIDmapping(fileName):
-    print "checking", fileName, "-->",
-    csv = open(fileName, "r")
-    count = 0
-    errors = 0
-    csv.readline() # skip header
-
-    for line in csv:
-        line_split = line.split('\t')
-        try:
-            longID = line_split[0]
-            shortID = line_split[1]
-            if not longID.startswith(shortID):
-                print "error in line", count, shortID, longID
-                errors += 1
-        except:
-            pass
-        count += 1
-
-    print "read", count, "samples,", errors, "errors"
-
-for fileName in ["16s_mapping_decimaldot.csv", "wgs_mapping_decimaldot.csv"]:
-    checkSampleIDmapping(fileName)
-~~~
-
-Calling the script produced the following output:
+numerical appendix, so I used the custom Python script
+*checkSampleIDmapping.py* to check if all samples were matched
+correctly. Calling the script produced the following output:
 
     checking 16s_mapping_decimaldot.csv --> read 528 samples, 0 errors
 	checking wgs_mapping_decimaldot.csv --> read 110 samples, 0 errors  
@@ -165,16 +137,15 @@ measure. The resulting files are called
 I loaded the data files created by the previous steps 3.2.1 and 3.2.2
 and created convenience access methods.
 
-```{r Initialisation}
+```{r Initialisation, echo=FALSE}
 theCountries <- c("Malawi", "USA", "Venezuela")
 theColors <- c("red", "blue", "green")
 names(theColors) <- theCountries
 alphaTable <- read.delim("local_copy/observed_species.csv")
-betaTable <- read.delim("local_copy/unweighted_unifrac_rarefaction_290000_4.txt")
+betaTable <- read.delim("local_copy/unweighted_unifrac_rarefaction_290000_1.txt")
 rownames(betaTable) <- betaTable[,1]; betaTable <- betaTable[,-1]
 theMetadata <- read.delim("16s_mapping_decimaldot.csv")
 rownames(theMetadata) <- theMetadata$X.SampleID
-colnames(theMetadata)
  # get sample ids with label of specific value
 getGroupIDs <- function(label, value) {
   theMetadata[theMetadata[,label] %in% value,]$X.SampleID
@@ -198,13 +169,9 @@ getBetaGroup <- function(label=NULL, value=NULL, range=FALSE, ids=NULL) {
 }
 ```
 
-In this document, only one of 20 possible beta diversity matrices is
-loaded. The others were also processed, and the produced clusterings
-were very similar to the one shown here (see 3.2.5).
-
 <!-- Usable sample sizes: 188517 or lower -->
 
-### UniFrac distance variation with age ###
+## UniFrac distance variation with age ##
 
 Yatsunenko et al. observed the change of microbiome composition from
 infant-specific to adult configuration by comparing the composition of
@@ -213,7 +180,7 @@ same country [@Yats12]. As it is not completely clear how the distance to all
 adults was calculated I chose to use the mean of distances of the
 child to each adult.
 
-```{r DiversityChildToAdult, cache=TRUE}
+```{r DiversityChildToAdult, cache=TRUE,echo=FALSE,fig.cap="The UniFrac distances start with high values at early ages, show a strong decline until approximately three years of age, and stay steadily low until adulthood."}
 
 plot(NULL, NULL, xlim=c(0, 18), ylim=c(0.35, 0.85), xlab="age", ylab="UniFrac distance")
 country <- list(
@@ -246,7 +213,7 @@ The UniFrac distances start with high values at early ages, show a
 strong decline until approximately three years of age and stay
 steadily low until adulthood (see fig. 1).
 
-### PCoA analysis of betadiversity
+## PCoA analysis of betadiversity ##
 
 Partitioning Around Medoids (PAM) is a method of clustering data
 points into a given number k of groups. I initially assigns a data
@@ -255,12 +222,15 @@ function by iteratively swapping points and centers and assigning all
 data points to the nearest new center.
 Yatsunenko et al. used the $\beta$-distance matrix as a one-dimensional
 dissimilarity measure for the PAM algorithm and chose k=3 clusters to
-refind the samples' countries of origin in the microbiome composition [@Yats12].
+refind the samples' countries of origin in the microbiome composition
+[@Yats12] of adults.
+
 I used the *pam* function from the *R* package *cluster* to repeat the
 process.
 
-```{r Clustering, cache=TRUE}
-clu <- pam(betaTable, diss=TRUE, k=3, keep.diss=TRUE)
+```{r Clustering, cache=FALSE, echo=FALSE}
+betaAdults <- getBetaGroup("Age", c(18,100), range=TRUE)
+clu <- pam(betaAdults, diss=TRUE, k=3, keep.diss=TRUE)
 clusplot(clu, col.p=c("red","blue","green")[theMetadata[names(clu$clustering),]$Country], main="")
 legend(x=0.1, y=-0.2, legend=theCountries, text.col=theColors)
  # note: color order is different, because the pamobject$clustering vector has a different order
@@ -270,22 +240,14 @@ pam.result <- sum(diag(contTable) / sum(contTable))
 print(pam.result)
 ```
 
-Figure 2: Colors follow the real countries of origin, while symbols denote the
-country-clusters predicted by PAM.
-The plot shows a separated, banana-shaped distribution of US Americans
-and intermingled groups of Malawians and Venezuelans with
-concentrations for each subgroups. Using different
-rarefaction tables showed the same results of circa 84 per cent correct
-assignment.
-
-### SVM classificator analysis of $\beta$-diversity ###
+## SVM classificator analysis of $\beta$-diversity ##
 
 The PCoA plot suggested that discrimination of samples by
 microbiome diversity is possible. To improve the assignment I used the
 implementation of support vector machines (SVM) in the *R* package
 *e1071* [@e1071]. Support vector machines classify multi-dimensional datasets
 by finding a hyperplane that separates the classes among (a subset
-of) their features. It solves the problem of seemingly inseperable
+of) their features. They solve the problem of seemingly inseperable
 datasets by applying a "kernel function" that adds additional
 dimensions to the data's used features.
 
@@ -293,7 +255,7 @@ I trained a SVM to discriminate the dataset by different subsets of the
 OTUs that showed the greatest variance and compared the predicted
 samples with their countries of origin, using 20-fold cross validation.
 
-```{r Classifiers, cache=TRUE}
+```{r Classifiers, cache=TRUE,echo=FALSE,fig.cap="Barplots of SVM-classifier prediction of the 16S dataset. X-axis describes the number of features used. The features were selected by greatest variance. A blue horizontal line shows the prediction success of PAM clustering for comparison."}
 require(e1071)
 species <- read.delim("local_copy/combined.csv", sep="\t", header=TRUE)
 rownames(species) <- species[,1]
@@ -328,23 +290,18 @@ axis(side=2, at=seq(from=0, to=1.2, by=0.2))
 ```
 <!-- all hail to the cache=TRUE parameter! -->
 
-Figure 4 shows barplots of SVM-classifier prediction of the 16S dataset. X-axis
-describes the number of features used. The features were selected by greatest
-variance. A blue horizontal line shows the prediction success of PAM clustering for
-comparison.
-
 TODO: Draw evenly from all populations according to their
 size. Improve feature sizes, include 90, as stated in the paper. Maybe
 use p-values instead of variances (will be even slower).
 
-### Bacterial diversity with age ###
+## Bacterial diversity with age ##
 
 Yatsunenko et al. found that the number of OTUs inside the fecal samples
 increased with age [@Yats12]. To verify this I calculated the means of OTU
 counts found in the ten rarefaction repetitions for each sample and plotted
 them against each samples' age.
 
-```{r BacterialDiversityWithAge}
+```{r BacterialDiversityWithAge, echo=FALSE, fig.cap="The number of OTUs per sample increases with age"}
 rarefaction <- 188517
 alpha <-alphaTable[alphaTable$sequences.per.sample==rarefaction,][,4:ncol(alphaTable)]
 counts <- colMeans(data.matrix(alpha))
@@ -358,9 +315,7 @@ legend(x=55, y=500, legend=theCountries, text.col=theColors)
 TODO: Recompile on linux box, where the data doesn't "drop to the
 floor". Find out, why these conversion errors appear on the Mac only.
 
-The plot shows an increasing number of OTUs with increasing age (fig. 4).
-
-### Processing of whole genome shotgun sequence data ###
+## Processing of whole genome shotgun sequence data ##
 
 *   Paper: "preprocessing was done using custom Perl scripts and publicly available
     software tools"
@@ -379,6 +334,23 @@ Decisions
     ->  decided to ignore that part
 
 \clearpage
+
+## Software used ##
+
+TODO: Integrate properly into methods
+
+The metadata mapping files were created using *LibreOffice* software
+suite version 4.2.4.2.  
+The QIIME workflow was followed using the *QIIME* suite of software
+tools, version 1.8.0 as described by Caporaso et al. [@QIIME].  
+Data analysis and visualization was done using the *R* statistical sofware
+version 3.1.0 [@R], the package *cluster* by Maechler et al. [@cluster] for
+partitioning around medoids
+and the package *e1071* by Meyer et al. [@e1071] for support vector machine
+classifiers.  
+The custom Python scripts mentioned in the scope of this document can
+be found on
+[my github page](https://github.com/hermann-p/yatsunenko-2012-microbiome).
 
 Discussion
 ==========
@@ -399,25 +371,10 @@ Con:
 *   switch from good description and documentation of 16S data to general,
 	useless statements for WGS analysis ("custom scripts and publicly available
 	tools")
-*   PAM clustering of beta-div not very meaningful, SVM proved a lot better
-
-Software used
-=============
-
-TODO: Integrate properly into methods
-
-The metadata mapping files were created using *LibreOffice* software
-suite version 4.2.4.2.  
-The QIIME workflow was followed using the *QIIME* suite of software
-tools, version 1.8.0 as described by Caporaso et al. [@QIIME].  
-Data analysis and visualization was done using the *R* statistical sofware
-version 3.1.0 [@R], the package *cluster* by Maechler et al. [@cluster] for
-partitioning around medoids
-and the package *e1071* by Meyer et al. [@e1071] for support vector machine
-classifiers.  
-The custom Python scripts mentioned in the scope of this document can
-be found on
-[my github page](https://github.com/hermann-p/yatsunenko-2012-microbiome).
+*   PAM clustering of beta-div not very meaningful, SVM proved a lot
+    better
+*   number of unknown ages among Malawian population. How were the
+    plotted in the original document?
 
 References
 ==========
