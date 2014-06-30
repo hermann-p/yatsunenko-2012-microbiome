@@ -137,7 +137,7 @@ measure. The resulting files are called
 I loaded the data files created by the previous steps 3.2.1 and 3.2.2
 and created convenience access methods.
 
-```{r Initialisation, echo=FALSE}
+```{r Initialisation, echo=TRUE}
 theCountries <- c("Malawi", "USA", "Venezuela")
 theColors <- c("red", "blue", "green")
 names(theColors) <- theCountries
@@ -145,6 +145,10 @@ alphaTable <- read.delim("local_copy/observed_species.csv")
 betaTable <- read.delim("local_copy/unweighted_unifrac_rarefaction_290000_1.txt")
 rownames(betaTable) <- betaTable[,1]; betaTable <- betaTable[,-1]
 theMetadata <- read.delim("16s_mapping_decimaldot.csv")
+ # sort tables by id-string-heads to make up for inconsistencies in id-string-tails
+theMetadata <- theMetadata[order(rownames(theMetadata)),]
+beta.order <- order(colnames(betaTable))
+betaTable <- betaTable[beta.order,beta.order]
 rownames(theMetadata) <- theMetadata$X.SampleID
  # get sample ids with label of specific value
 getGroupIDs <- function(label, value) {
@@ -165,11 +169,15 @@ getBetaGroup <- function(label=NULL, value=NULL, range=FALSE, ids=NULL) {
 	if (!range)	ids <- getGroupIDs(label, value)
 	else ids <- getRangeIDs(label, value[1], value[2])
   }
-  betaTable[which(rownames(betaTable) %in% ids), which(colnames(betaTable) %in% ids)]
+  nums <- which(rownames(theMetadata) %in% ids)
+  cat( length(nums), "of", length(ids), "can be retrieved\n")
+  result <- betaTable[nums, nums]
+  rownames(result) <- colnames(result)
+  result
 }
 ```
 
-<!-- Usable sample sizes: 188517 or lower -->
+<!-- Useable sample sizes: 188517 or lower -->
 
 ## UniFrac distance variation with age ##
 
@@ -180,7 +188,7 @@ same country [@Yats12]. As it is not completely clear how the distance to all
 adults was calculated I chose to use the mean of distances of the
 child to each adult.
 
-```{r DiversityChildToAdult, cache=TRUE,echo=FALSE,fig.cap="The UniFrac distances start with high values at early ages, show a strong decline until approximately three years of age, and stay steadily low until adulthood."}
+```{r DiversityChildToAdult, cache=TRUE,echo=TRUE,fig.cap="The UniFrac distances start with high values at early ages, show a strong decline until approximately three years of age, and stay steadily low until adulthood."}
 
 plot(NULL, NULL, xlim=c(0, 18), ylim=c(0.35, 0.85), xlab="age", ylab="UniFrac distance")
 country <- list(
@@ -209,14 +217,10 @@ for (country in theCountries) {
 legend(x=14, y=1.0, legend=theCountries, text.col=theColors)
 ```
 
-The UniFrac distances start with high values at early ages, show a
-strong decline until approximately three years of age and stay
-steadily low until adulthood (see fig. 1).
-
-## PCoA analysis of betadiversity ##
+## PCoA analysis of $\beta$-diversity ##
 
 Partitioning Around Medoids (PAM) is a method of clustering data
-points into a given number k of groups. I initially assigns a data
+points into a given number k of groups. It initially assigns a data
 point as center for each of the groups and then minimizes a global distance
 function by iteratively swapping points and centers and assigning all
 data points to the nearest new center.
@@ -228,14 +232,21 @@ refind the samples' countries of origin in the microbiome composition
 I used the *pam* function from the *R* package *cluster* to repeat the
 process.
 
-```{r Clustering, cache=FALSE, echo=FALSE}
-betaAdults <- getBetaGroup("Age", c(18,100), range=TRUE)
+```{r Clustering, cache=FALSE, echo=TRUE, fig.cap="PCoA of beta-diversity among adults. Western samples can be linearly seperated. Many Malawian samples missing due to illegal data values."}
+adultNames <- setdiff( rownames(theMetadata), getRangeIDs("Age", 0, 18) )
+betaAdults <- getBetaGroup(ids=adultNames)
+betaChldrn <- getBetaGroup("Age", c(0, 18), range=TRUE)
 clu <- pam(betaAdults, diss=TRUE, k=3, keep.diss=TRUE)
+clu2 <- pam(betaChldrn, diss=TRUE, k=3, keep.diss=TRUE)
+par(mfrow=c(1,2))
 clusplot(clu, col.p=c("red","blue","green")[theMetadata[names(clu$clustering),]$Country], main="")
-legend(x=0.1, y=-0.2, legend=theCountries, text.col=theColors)
+clusplot(clu2, col.p=c("red","blue","green")[theMetadata[names(clu$clustering),]$Country], main="")
+legend(x=0.15, y=-0.1, legend=theCountries, text.col=theColors)
  # note: color order is different, because the pamobject$clustering vector has a different order
-contTable <- table(clu$clustering, theMetadata[names(clu$clustering),]$Country)
-contTable <- cbind(contTable[,2], contTable[,1], contTable[,3]) # correct order
+contTable <- table(clu$clustering,
+theMetadata[names(clu$clustering),]$Country)
+ # correct order 
+contTable <- cbind(contTable[,3], contTable[,1], contTable[,2])
 pam.result <- sum(diag(contTable) / sum(contTable))
 print(pam.result)
 ```
@@ -255,7 +266,7 @@ I trained a SVM to discriminate the dataset by different subsets of the
 OTUs that showed the greatest variance and compared the predicted
 samples with their countries of origin, using 20-fold cross validation.
 
-```{r Classifiers, cache=TRUE,echo=FALSE,fig.cap="Barplots of SVM-classifier prediction of the 16S dataset. X-axis describes the number of features used. The features were selected by greatest variance. A blue horizontal line shows the prediction success of PAM clustering for comparison."}
+```{r Classifiers, cache=TRUE,echo=TRUE,fig.cap="Barplots of SVM-classifier prediction of the 16S dataset. X-axis describes the number of features used. The features were selected by greatest variance. A blue horizontal line shows the prediction success of PAM clustering for comparison."}
 require(e1071)
 species <- read.delim("local_copy/combined.csv", sep="\t", header=TRUE)
 rownames(species) <- species[,1]
@@ -301,7 +312,7 @@ increased with age [@Yats12]. To verify this I calculated the means of OTU
 counts found in the ten rarefaction repetitions for each sample and plotted
 them against each samples' age.
 
-```{r BacterialDiversityWithAge, echo=FALSE, fig.cap="The number of OTUs per sample increases with age"}
+```{r BacterialDiversityWithAge, echo=TRUE, fig.cap="The number of OTUs per sample increases with age"}
 rarefaction <- 188517
 alpha <-alphaTable[alphaTable$sequences.per.sample==rarefaction,][,4:ncol(alphaTable)]
 counts <- colMeans(data.matrix(alpha))
