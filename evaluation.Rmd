@@ -170,7 +170,6 @@ getBetaGroup <- function(label=NULL, value=NULL, range=FALSE, ids=NULL) {
 	else ids <- getRangeIDs(label, value[1], value[2])
   }
   nums <- which(rownames(theMetadata) %in% ids)
-  cat( length(nums), "of", length(ids), "can be retrieved\n")
   result <- betaTable[nums, nums]
   rownames(result) <- colnames(result)
   result
@@ -188,8 +187,8 @@ same country [@Yats12]. As it is not completely clear how the distance to all
 adults was calculated I chose to use the mean of distances of the
 child to each adult.
 
-```{r DiversityChildToAdult, cache=TRUE,echo=TRUE,fig.cap="The UniFrac distances start with high values at early ages, show a strong decline until approximately three years of age, and stay steadily low until adulthood."}
-
+```{r DiversityChildToAdult, echo=TRUE,fig.cap="The UniFrac distances start with high values at early ages, show a strong decline until approximately three years of age, and stay steadily low until adulthood."}
+adultNames <- setdiff( rownames(theMetadata), getRangeIDs("Age", 0, 18) )
 plot(NULL, NULL, xlim=c(0, 18), ylim=c(0.35, 0.85), xlab="age", ylab="UniFrac distance")
 country <- list(
     "USA" = getGroupIDs("Country", "USA"),
@@ -197,9 +196,9 @@ country <- list(
     "Venezuela" = getGroupIDs("Country", "Venezuela")
     )
 adults <- list(
-    "USA" = intersect(country[["USA"]], getRangeIDs("Age", 19, 99)),
-    "Malawi" = intersect(country[["Malawi"]], getRangeIDs("Age", 19, 99)),
-    "Venezuela" = intersect(country[["Venezuela"]], getRangeIDs("Age", 19, 99))
+    "USA" = intersect(country[["USA"]], adultNames),
+    "Malawi" = intersect(country[["Malawi"]], adultNames),
+    "Venezuela" = intersect(country[["Venezuela"]], adultNames)
     )
 children <- list(
     "USA" = intersect(country[["USA"]], getRangeIDs("Age", 0, 18)),
@@ -232,16 +231,14 @@ refind the samples' countries of origin in the microbiome composition
 I used the *pam* function from the *R* package *cluster* to repeat the
 process.
 
-```{r Clustering, cache=FALSE, echo=TRUE, fig.cap="PCoA of beta-diversity among adults. Western samples can be linearly seperated. Many Malawian samples missing due to illegal data values."}
+```{r Clustering, cache=TRUE, echo=TRUE, fig.cap="PCoA of beta-diversity among adults. Western (US) Samples can be separated linearly with five errors."}
 adultNames <- setdiff( rownames(theMetadata), getRangeIDs("Age", 0, 18) )
 betaAdults <- getBetaGroup(ids=adultNames)
 betaChldrn <- getBetaGroup("Age", c(0, 18), range=TRUE)
 clu <- pam(betaAdults, diss=TRUE, k=3, keep.diss=TRUE)
 clu2 <- pam(betaChldrn, diss=TRUE, k=3, keep.diss=TRUE)
-par(mfrow=c(1,2))
 clusplot(clu, col.p=c("red","blue","green")[theMetadata[names(clu$clustering),]$Country], main="")
-clusplot(clu2, col.p=c("red","blue","green")[theMetadata[names(clu$clustering),]$Country], main="")
-legend(x=0.15, y=-0.1, legend=theCountries, text.col=theColors)
+legend(x=-0.48, y=0.3, legend=theCountries, text.col=theColors)
  # note: color order is different, because the pamobject$clustering vector has a different order
 contTable <- table(clu$clustering,
 theMetadata[names(clu$clustering),]$Country)
@@ -249,6 +246,11 @@ theMetadata[names(clu$clustering),]$Country)
 contTable <- cbind(contTable[,3], contTable[,1], contTable[,2])
 pam.result <- sum(diag(contTable) / sum(contTable))
 print(pam.result)
+```
+
+```{r ClusteringChildren, cache=TRUE, echo=FALSE, fig.cap="PCuA of beta-diversity among children shows no clear grouping"}
+clusplot(clu2, col.p=c("red","blue","green")[theMetadata[names(clu$clustering),]$Country], main="")
+legend(x=-0.42, y=-0.2, legend=theCountries, text.col=theColors)
 ```
 
 ## SVM classificator analysis of $\beta$-diversity ##
@@ -272,10 +274,12 @@ species <- read.delim("local_copy/combined.csv", sep="\t", header=TRUE)
 rownames(species) <- species[,1]
 species <- species[,-1] # species level OTU table
 species <- t(species)   # now rows = samples, cols = OTU counts
+species <- species[order(colnames(species)),] # sort by id
+speciesAdult <- species[which(rownames(theMetadata) %in% adultNames),] # select adult samples
 reps <- 20              # number of repetitions for cross validation
-L <- nrow(species)
+L <- nrow(speciesAdult)
 N <- L / reps           # number of samples per validation run
-featureSizes <- c(1:5, seq(10, 500, len=10), ncol(species)) # 
+featureSizes <- c(1:5, 1, 20, 30, 50, 90, seq(100, 1000, len=10), ncol(speciesAdult)) # 
 strength <- matrix(0, nrow=reps, ncol=length(featureSizes))
 for (j in 1:length(featureSizes)) {
 	allOfThem <- 1:L    # available samples
@@ -283,13 +287,13 @@ for (j in 1:length(featureSizes)) {
 		testSet <- sample(allOfThem, N)
 		allOfThem <- allOfThem[-testSet]
 		training <- c(1:L)[-testSet]
-		variances <- apply(species[training,], 2, var)
+		variances <- apply(speciesAdult[training,], 2, var)
 		topVariables <- order(variances, decreasing=TRUE)
 		topVariables <- topVariables[1:featureSizes[j]]
-		trnNames <- rownames(species)[training]
-		tstNames <- rownames(species)[testSet]
-		model <- svm(x=species[training,topVariables], y=theMetadata[trnNames,]$Country);
-		prediction <- predict(model, species[testSet,topVariables])
+		trnNames <- rownames(speciesAdult)[training]
+		tstNames <- rownames(speciesAdult)[testSet]
+		model <- svm(x=speciesAdult[training,topVariables], y=theMetadata[trnNames,]$Country);
+		prediction <- predict(model, speciesAdult[testSet,topVariables])
 		contingency <- table(prediction, theMetadata[tstNames,]$Country)
 		strength[i,j] <- sum(diag(contingency)) / sum(contingency)
 	}
