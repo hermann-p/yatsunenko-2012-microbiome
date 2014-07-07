@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="pandoc">
+  <meta name="author" content="Hermann Pauly" />
+  <meta name="dcterms.date" content="2014-07-08" />
+  <title>Practical Bioinformatics</title>
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link rel="stylesheet" href="reveal.js/css/reveal.min.css"/>
+    <style type="text/css">code{white-space: pre;}</style>
+    <link rel="stylesheet" href="reveal.js/css/theme/simple.css" id="theme">
+    <!-- If the query includes 'print-pdf', include the PDF print sheet -->
+    <script>
+      if( window.location.search.match( /print-pdf/gi ) ) {
+        var link = document.createElement( 'link' );
+        link.rel = 'stylesheet';
+        link.type = 'text/css';
+        link.href = 'reveal.js/css/print/pdf.css';
+        document.getElementsByTagName( 'head' )[0].appendChild( link );
+      }
+    </script>
+    <!--[if lt IE 9]>
+    <script src="reveal.js/lib/js/html5shiv.js"></script>
+    <![endif]-->
+</head>
+<body>
+  <div class="reveal">
+    <div class="slides">
+
+<section>
+    <h1 class="title">Practical <br>Bioinformatics</h2>
+    <h2 class="author">Hermann Pauly</h3>
+    <h3 class="date">2014-07-08</h3>
+</section>
+
+<section class="slide level2">
+
+<h3>
+Yatsunenko et al.
+</h3>  
+<h3>
+<strong>Human Gut Miccobiome Viewed Across Age and Geography</strong>
+</h3>  
+<p>Nature, 2012</p>
+</section>
+<section><section id="reminders" class="titleslide slide level1"><h1>Reminders</h1></section><section id="what-was-done" class="slide level2">
+<h2>What was done</h2>
+<ul>
+<li><p>3 populations of all ages</p></li>
+<li>microorganism communities from fecal samples
+<ul>
+<li>composition</li>
+<li>diversity</li>
+<li>westernization effects</li>
+</ul></li>
+</ul>
+</section><section id="terms-and-definitions" class="slide level2">
+<h2>Terms and definitions</h2>
+<ul>
+<li><p><strong>OTU:</strong> grouping of microorganisms by genetic similarity</p></li>
+<li><p><strong><span class="math"><em>α</em></span>-diversity:</strong> intra-sample diversity<br> here measured by fraction of shared phylogeny branch (UniFrac)</p></li>
+<li><p><strong><span class="math"><em>β</em></span>-diversity:</strong> inter-sample diversity<br> here measured by OTU counts</p></li>
+</ul>
+</section></section>
+<section><section id="microbiome-composition" class="titleslide slide level1"><h1>Microbiome Composition</h1></section><section id="development-of-composition" class="slide level2">
+<h2>Development of composition</h2>
+<p><img width="60%" src="microbiome3/child2adlt_orig.png"> <img width="35%" src="microbiome3/child2adlt.png"></p>
+<p>Means of <span class="math"><em>α</em></span>-diversity of children to all adults in same country against age</p>
+</section><section id="number-of-otus" class="slide level2">
+<h2>Number of OTUs</h2>
+<p><img src="microbiome3/age_orig.png"></p>
+</section><section id="number-of-otus-1" class="slide level2">
+<h2>Number of OTUs</h2>
+<ul>
+<li>estimated from &quot;rarefaction&quot;</li>
+<li>rarefaction: subsample to compare richness in samples of different sizes</li>
+</ul>
+<p><img width="45%" src="microbiome3/rarefaction.png"> <img width="45%" src="microbiome3/rarefactionAge.png"></p>
+</section><section id="increase-of-diversity" class="slide level2">
+<h2>Increase of diversity</h2>
+<p><img width="60%" src="microbiome3/age_orig.png"> <img width="30%" src="microbiome3/age.png"></p>
+<p>Numbers of OTUs against age</p>
+</section></section>
+<section><section id="westernization" class="titleslide slide level1"><h1>Westernization</h1></section><section id="clustering" class="slide level2">
+<h2>Clustering</h2>
+<p><img width="45%" src="microbiome3/pam_orig.png"> <img width="45%" src="microbiome3/pam.png"></p>
+<p>Measure: pairwise <span class="math"><em>β</em></span>-diversity of samples</p>
+<div class="fragment">
+<p>What about the linear separation?</p>
+</div>
+</section><section id="clustering-1" class="slide level2">
+<h2>Clustering</h2>
+<p><img width="45%" src="microbiome3/pamAdlt.png"> <img width="45%" src="microbiome3/pamChld.png"></p>
+<ul>
+<li>left: linear separation with little errors among adults</li>
+<li>right: no separation at all among children</li>
+</ul>
+</section><section id="nutrition" class="slide level2">
+<h2>Nutrition</h2>
+<p><img src="microbiome3/babiesFood.png"></p>
+</section><section id="nutrition-1" class="slide level2">
+<h2>Nutrition ?</h2>
+<p><img src="microbiome3/babiesCountries.png"></p>
+</section><section id="multidimensional-separation" class="slide level2">
+<h2>Multidimensional separation</h2>
+<ul>
+<li><p>PAM: one-dimensional measure used</p></li>
+<li><p>visually: better separation</p></li>
+<li>SVM
+<ul>
+<li>supervised learning model</li>
+<li>separates datasets with a hyperplane</li>
+<li>&quot;kernel trick&quot;</li>
+</ul></li>
+</ul>
+</section><section id="svm-classification" class="slide level2">
+<h2>SVM classification</h2>
+<p><img width="50%" src="microbiome3/svm.png"></p>
+<p>SVM prediction success of adult samples against number of used OTUs, 20-fold cross-validation. Blue: success of PAM.</p>
+</section></section>
+<section><section id="my-review" class="titleslide slide level1"><h1>My review</h1></section><section id="what-went-well" class="slide level2">
+<h2>What went well</h2>
+<p>The 16S rRNA analysis</p>
+<div class="fragment">
+<ul>
+<li>good process descriptions</li>
+<li>data available and complete</li>
+<li>use of publicly available tools</li>
+<li>lots of supplementary data</li>
+<li>graphs and results reproducable</li>
+</ul>
+</div>
+</section><section id="what-didnt-go-well" class="slide level2">
+<h2>What didn't go well</h2>
+<ul>
+<li>some information hard to find</li>
+<li>incomplete metadata, no mapping</li>
+<li>no real raw data</li>
+<li>lack of description and mapping possibility for WGS</li>
+</ul>
+</section><section id="propositions" class="slide level2">
+<h2>Propositions</h2>
+<ul>
+<li>publish raw data and mapping instead of pre-processed &quot;raw data&quot;</li>
+<li>process data with different tools for comparison</li>
+<li>absolute vs. relative OTU abundances</li>
+<li>correspond if you're the corresponding author</li>
+</ul>
+</section></section>
+<section><section id="thank-you" class="titleslide slide level1" data-background="microbiome3/poop.jpg"><h1>Thank you</h1></section></section>
+    </div>
+  </div>
+
+
+  <script src="reveal.js/lib/js/head.min.js"></script>
+  <script src="reveal.js/js/reveal.min.js"></script>
+
+  <script>
+
+      // Full list of configuration options available here:
+      // https://github.com/hakimel/reveal.js#configuration
+      Reveal.initialize({
+        controls: true,
+        progress: true,
+        history: true,
+        center: true,
+        theme: Reveal.getQueryHash().theme, // available themes are in /css/theme
+        transition: 'none', // default/cube/page/concave/zoom/linear/fade/none
+
+        // Optional libraries used to extend on reveal.js
+        dependencies: [
+          { src: 'reveal.js/lib/js/classList.js', condition: function() { return !document.body.classList; } },
+          { src: 'reveal.js/plugin/zoom-js/zoom.js', async: true, condition: function() { return !!document.body.classList; } },
+          { src: 'reveal.js/plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } },
+//          { src: 'reveal.js/plugin/search/search.js', async: true, condition: function() { return !!document.body.classList; }, }
+//          { src: 'reveal.js/plugin/remotes/remotes.js', async: true, condition: function() { return !!document.body.classList; } }
+]});
+    </script>
+    </body>
+</html>
