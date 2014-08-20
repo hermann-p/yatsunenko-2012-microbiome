@@ -322,7 +322,7 @@ alpha <-alphaTable[alphaTable$sequences.per.sample==rarefaction,][,4:ncol(alphaT
 counts <- colMeans(data.matrix(alpha))
 names(counts) <- colnames(alpha)
 x <- theMetadata[names(counts),]$Age
-cols <- c("green", "blue", "red")[theMetadata[names(counts),]$Country]
+cols <- c("red", "blue", "green")[theMetadata[names(counts),]$Country]
 plot(x, counts, col=cols, pch=20, ylab="Number of OTUs", xlab="Age", lab=c(20, 6, 7))
 legend(x=55, y=500, legend=theCountries, text.col=theColors)
 ```
