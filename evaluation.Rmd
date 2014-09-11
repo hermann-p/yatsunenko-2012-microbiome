@@ -3,32 +3,45 @@
 % \today
 
 Abstract
-======
+========
 
 Soon to come...
 
 Introduction
-========
+============
 
-In science we try to produce reliable and unambigous results, working hard to avoid
-common pitfalls and sloppy work, and we expect the same from our fellow scientists.
-Nevertheless, an unacceptable number of publications *(numbers)* contain grave errors
-*(quote needed)*, which has lead to waning trust in science, among scientists as well
-as in the general public. One feature of trustworthy scientific work is
-reproducability. If a second person with proper knowledge analyses a researchers' data
-and finds the same results, this is an indicator that the first scientist did work
-correctly. *(or both are wrong ;-) )*  
-Here I work on the data Yasunenko et al. published in 2012 along with their publication
-"Human Gut Microbiome Viewed Across Age and Geography" in Nature magazine.
-They sequenced genomic data of fecal samples from participants hailing from three
-different countries. Using ANOVA post hoc testing they found significant diversities
-among ages, geographic locations and families (see [@Yats12]).
-I recreated calculations, data processing, and data visualisation following the
-descriptions given in the original paper to check if their findings and conclusions
-can be reproduced knowing nothing more than the published sequencer data.
+All higher creatures' bodies are populated by microorganisms. These
+microorganisms, beneficial symbionts or pathogenes alike, outnumber
+the body cells by one magnitude. A community of such microorganisms on
+a specified location is called a microbiome. There are a number of
+microbiomes on and inside the human body, for example the community of
+skin, lung or mouth bacteriae. Not only do those organisms impact
+their host's individual health, they also provide a source for genetic
+information.  
+Yatsunenku et al. gathered and examined genomic data of 528 fecal
+samples from participants hailing from urban areas in the USA, rural
+areas in Malawi (southeast Africa) and indigenous people from the
+Amazonas region of Venezuela.  
+Taxonomic data was acquired by sequencing only a small region, the V4
+hypervariable region, of the ribosomal 16S rRNA found in the
+feces. This V4 region is diverse enough to allow species
+identification and can be located easily because it is surrounded by
+"constant regions", which are strongly conserved across species. The authors
+used the taxonomic data to analyse the microbiome composition
+(relative abundances of taxa) and species richness in each sample.
+They further pyrosequenced the whole gene content of 110 of the
+provided samples and analysed the biological functions of encoded
+proteins in the individual samples.  
+Using ANOVA post hoc testing, the authors found significant
+differences among samples from different ages, geographic
+locations and families (see [@Yats12]).  
+Here I work on their data to recreate calculations, data processing,
+and data visualisation following the descriptions given in the
+original paper to see if their findings and conclusions can be
+reproduced knowing nothing more than the published sequencer data.
 
 Methods and results
-==============
+===================
 
 <!--
 ## System information
@@ -42,30 +55,46 @@ sessionInfo()
 
 ## Data aquisition ##
 
-I downloaded the raw data and metadata files from MG-RAST[@MG-RAST] using the
-UNIX command line tool *wget*. They can be found under project ID
-numbers 98 (whole genome shotgun sequences) and 401 (16S rRNA V4 sequences).
+I downloaded the raw data and metadata files from MG-RAST[@MG-RAST],
+project ID numbers 98 (whole genome shotgun sequences) and 401 (16S
+rRNA V4 sequences), using the UNIX command line tool *wget*.
+Each project includes a Microsoft *.docx* spreadsheet, containing
+additional  information (metadata) for each sample, including
+participant's country of  origin, family and age. There are subfolders
+for each sample, containing the *FASTA* sequence data as well as
+*.stats* files with information about the sample's microbiome, which
+come from an analysis that is done automatically when sequence data is
+uploaded to MG-RAST. This information includes taxonomy of found
+bactererial species, their overall metabolic function if known, and
+counts of their appearance for each sample.  
+For the following analyses, only the metadata and *FASTA* files were
+used.
 
 ## Preprocessing ##
 
-### Metadata mapping files ###
+### Mapping sample IDs, sequence information, and metadata ###
 
-To categorize and compare genome data, a link between sequenced sample
-files and their respective metadata is required. The MG-RAST database [@MG-RAST]
-provides a
+To be able to group and compare samples by their host's properties
+(see 3.2.3 for a list of available metadata), a link between sequenced
+sample files and their respective metadata is required. The MG-RAST
+database provides a
 mapping file between sample data files and unique IDs with incomplete
 metadata, while Yatsunenko et al. provide a complete metadata file without
 mapping to the sample data files. I applied the "calc" module of the
-*LibreOffice* suite to combine the contents of both files to a
+*LibreOffice* suite to manually combine the contents of both files to a
 complete mapping file. For this I sorted both provided files' contents
-by their sample ID strings and copy-pasted missing rows from the
-MG-RAST mapping file into the metadata table. Two entries from the
-mapping file were not found in the metadata table, and Yatsunenko et al. also
-stated that two samples could not be used in the analysis [@Yats12], so I
-removed them from the metadata-mapping file. The result was saved as a
-tab-separated .csv file. On my system with German environment settings
-I had to convert decimal values from comma-separated values to
-international dot-separated format using the command line tool *sed*:
+by their sample IDs and copy-pasted missing rows from the
+MG-RAST mapping file into the metadata table. Two ID entries from the
+mapping file were not found in the metadata table, what means that the
+corresponding samples' sequence information was not uploaded to
+MG-RAST. This conforms to the paper, where Yatsunenko et al.
+state that two samples could not be used in the analysis without
+giving reasons or sample IDs. Assuming they referred to the same two samples
+I removed these IDs from the metadata-mapping file. The result was
+saved as a tab-separated .csv file. On my system with German
+environment settings I had to convert decimal values from
+comma-separated values to international dot-separated format using the
+command line tool *sed*: 
 
 ```
 sed 's/,/\./g' 16s_mapping.csv > 16s_mapping_decimaldot.csv
@@ -79,7 +108,22 @@ correctly. Calling the script produced the following output:
     checking 16s_mapping_decimaldot.csv --> read 528 samples, 0 errors
 	checking wgs_mapping_decimaldot.csv --> read 110 samples, 0 errors  
 
-### $\alpha$- and $\beta$ diversity ###
+### OTUs, $\alpha$- and $\beta$ diversity measures ###
+
+As there are still many unknow microorganism species, a complete
+species-level taxonomy can not always be obtained. Therefore
+Yatsunenko et al. applied followed the QIIME standard protocol,
+assigning all organisms with at least 97% sequence identity to the
+same operational taxonomic unit (OTU) instead of trying to determine
+all species exactly.
+
+To compare samples, some kind of measure must be available. 
+They then applied $\alpha$ (intra-sample) and $\beta$ (inter-sample)
+diversity as measures. To calculate $\alpha$-diversity in each sample
+they used the relative abundances of OTUs, for pairwise
+$\beta$-diversity they applied the UniFrac measure $1-f$, where $f$ is
+the fraction of the phylogeny tree shared by all organisms in both
+samples.
 
 Using the supported data and the manually created metadata mapping
 table, I followed the QIIME workflow to create tables of OTU
@@ -89,11 +133,12 @@ The first step required is to categorize the sequenced microorganisms
 into groups by phylogenetic distance. This step is called "picking". To
 do this, I used the QIIME tool *pick\_closed\_reference.py*, which
 compares the samples to an existing similarity tree. As picking
-reference I used the GreenGenes database from 2011-02-04 and a
-similarity threshold of 97%, as did Yatsunenko et al. [@Yats12].
-The picking was done on
-each sample individually, ten samples in parallel at any time, by
-using the custom Python script *picking.py*.
+reference I used the GreenGenes database from 2011-02-04, which
+supplies a phylogenetical tree for microorganisms. Following the QIIME
+protocol, as did Yatsunenko et al., samples with more than 97%
+sequence identity were considered the same OTU.
+The picking was done on each sample individually, ten samples in
+parallel at any time, by using the custom Python script *picking.py*.
 
 The QIIME tools for $\alpha$-rarefaction and
 $\beta$-diversity-analysis require a single biom table as input file,
@@ -101,8 +146,9 @@ so I combined the picking results. A try to combine all 528 sample
 tables exceeded the computational power available, so I used the
 custom Python script *combine.py* which creates a shell script that
 calls the QIIME tool *merge\_otu\_tables.py* to iteratively add
-sample tables to a common table. A copy of this table was converted to
-a tab-separated file (\texttt{combined.csv}) for easy use with *R*.
+sample tables to a common table. The QIIME command *biom* was applied
+to convert a copy of this table to a tab-separated file
+(\texttt{combined.csv}) for easy use with *R*. 
 
 The following steps were all done with QIIME tools. To assess species
 richness from the samples, the "rarefaction" technique is used. A
@@ -114,10 +160,10 @@ suitable rarefaction depths.
 (TODO: nice rarefaction image here)
 The read numbers per sample ranged from 305,631 to 5,826,936, with a mean
 of 1,932,291 and a median of 1,884,081. To guarantee that all samples are
-represented and each one is subsampled I chose a rarefaction depth of
-290,000 (as compared to 290,603 in the original publication), which is
-less than the smallest sample's read count. I repeated the
-rarefactioning ten times, using the tool
+represented and avoid that small samples would supply all reads
+available, I subsampled 290,603 reads from each sample, the same
+rarefaction depth as was used in the original publication. I repeated
+the rarefactioning ten times, using the tool
 *multiple\_rarefaction\_even\_depth.py*.
 
 From those rarefied OTU tables I calculated the $\alpha$- and $\beta$-diversity.
@@ -132,10 +178,10 @@ tables, each with weighted and unweighted UniFrac distances as a
 measure. The resulting files are called
 \texttt{(unweighted\_)unifrac\_rarefaction\_290000\_N.txt}.
 
-### Load data from preprocessed files ###
+### Accessing the data from \texttt{R} ###
 
 I loaded the data files created by the previous steps 3.2.1 and 3.2.2
-and created convenience access methods.
+and programmed methods to access elements of the data conveniently.
 
 ```{r Initialisation, echo=TRUE}
 theCountries <- c("Malawi", "USA", "Venezuela")
@@ -178,14 +224,14 @@ getBetaGroup <- function(label=NULL, value=NULL, range=FALSE, ids=NULL) {
 
 <!-- Useable sample sizes: 188517 or lower -->
 
-## UniFrac distance variation with age ##
+## Differences decrease with age ##
 
-Yatsunenko et al. observed the change of microbiome composition from
+Yatsunenko et al. observed a change of microbiome composition from
 infant-specific to adult configuration by comparing the composition of
-each child's microbiome against the microbiome composition of all adults from the
-same country [@Yats12]. As it is not completely clear how the distance to all
-adults was calculated I chose to use the mean of distances of the
-child to each adult.
+each child's microbiome against the microbiome composition of all
+adults from the same country. As it is not completely clear how the
+distance to all adults was calculated I used the mean of
+distances of the child to each adult.
 
 ```{r DiversityChildToAdult, echo=TRUE,fig.cap="The UniFrac distances start with high values at early ages, show a strong decline until approximately three years of age, and stay steadily low until adulthood."}
 adultNames <- setdiff( rownames(theMetadata), getRangeIDs("Age", 0, 18) )
@@ -220,15 +266,16 @@ legend(x=14, y=1.0, legend=theCountries, text.col=theColors)
 
 Partitioning Around Medoids (PAM) is a method of clustering data
 points into a given number k of groups. It initially assigns a data
-point as center for each of the groups and then minimizes a global distance
-function by iteratively swapping points and centers and assigning all
-data points to the nearest new center.
+point as center for each of the groups and then minimises the sum of
+distances from all points to their nearest center by iteratively
+swapping points and centers and reassigning all data points to the
+nearest new center.
 Yatsunenko et al. used the $\beta$-distance matrix as a one-dimensional
-dissimilarity measure for the PAM algorithm and chose k=3 clusters to
+dissimilarity measures for the PAM algorithm and chose k=3 clusters to
 refind the samples' countries of origin in the microbiome composition
-[@Yats12] of adults.
+of adults.
 
-I used the *pam* function from the *R* package *cluster* to repeat the
+I used the *pam* function from the *R* package *cluster* [@cluster] to repeat the
 process.
 
 ```{r Clustering, cache=TRUE, echo=TRUE, fig.cap="PCoA of beta-diversity among adults. Western (US) Samples can be separated linearly with five errors."}
@@ -248,6 +295,8 @@ pam.result <- sum(diag(contTable) / sum(contTable))
 print(pam.result)
 ```
 
+I also clustered the children's distance measures with the same method.
+
 ```{r ClusteringChildren, cache=TRUE, echo=FALSE, fig.cap="PCuA of beta-diversity among children shows no clear grouping"}
 clusplot(clu2, col.p=c("red","blue","green")[theMetadata[names(clu$clustering),]$Country], main="")
 legend(x=-0.42, y=-0.2, legend=theCountries, text.col=theColors)
@@ -264,9 +313,10 @@ of) their features. They solve the problem of seemingly inseperable
 datasets by applying a "kernel function" that adds additional
 dimensions to the data's used features.
 
-I trained a SVM to discriminate the dataset by different subsets of the
-OTUs that showed the greatest variance and compared the predicted
-samples with their countries of origin, using 20-fold cross validation.
+I trained a SVM with default radial kernel function to discriminate
+the dataset by different subsets of the OTUs that showed the greatest
+variance and compared the predicted samples with their countries of
+origin, using 20-fold cross validation.
 
 ```{r Classifiers, cache=TRUE,echo=TRUE,fig.cap="Barplots of SVM-classifier prediction of the 16S dataset. X-axis describes the number of features used. The features were selected by greatest variance. A blue horizontal line shows the prediction success of PAM clustering for comparison."}
 require(e1071)
@@ -305,18 +355,14 @@ axis(side=2, at=seq(from=0, to=1.2, by=0.2))
 ```
 <!-- all hail to the cache=TRUE parameter! -->
 
-TODO: Draw evenly from all populations according to their
-size. Improve feature sizes, include 90, as stated in the paper. Maybe
-use p-values instead of variances (will be even slower).
-
-## Bacterial diversity with age ##
+## Microbiomes get more diverse with age ##
 
 Yatsunenko et al. found that the number of OTUs inside the fecal samples
-increased with age [@Yats12]. To verify this I calculated the means of OTU
+increased with age. To verify this I calculated the means of OTU
 counts found in the ten rarefaction repetitions for each sample and plotted
 them against each samples' age.
 
-```{r BacterialDiversityWithAge, echo=TRUE, fig.cap="The number of OTUs per sample increases with age"}
+```{r BacterialDiversityWithAge, echo=TRUE, fig.cap="The number of OTUs per sample increases with age. Missing entries due to NA values for age (abcisssa) of most African participants."}
 rarefaction <- 188517
 alpha <-alphaTable[alphaTable$sequences.per.sample==rarefaction,][,4:ncol(alphaTable)]
 counts <- colMeans(data.matrix(alpha))
@@ -327,42 +373,58 @@ plot(x, counts, col=cols, pch=20, ylab="Number of OTUs", xlab="Age", lab=c(20, 6
 legend(x=55, y=500, legend=theCountries, text.col=theColors)
 ```
 
-TODO: Recompile on linux box, where the data doesn't "drop to the
-floor". Find out, why these conversion errors appear on the Mac only.
 
 ## Processing of whole genome shotgun sequence data ##
 
-*   Paper: "preprocessing was done using custom Perl scripts and publicly available
-    software tools"
-*   Filtering for degenerate sequences, duplicates: possible with custom script, but
-    huge amounts of cpu time needed
-*   Further preprocessing unknown
+Yatsunenko et al. sequenced the whole gene sequences (WGS) of 110 samples
+out of the 528 that were taken, without making clear if there was a
+method of choosing or if the 110 samples were picked at random. They
+compared the proteins encoded in the microbiotas'
+sequences from these samples against KEGG and ???? protein databases
+to analyse the encoded proteins for their functions and found distinct
+patterns that distinguished microbiomes from US citizens from non-US
+citizens concerning metabolic functions.
 
-Decisions
+Before the raw sequences can be matched with databases, they need to
+be prepared. Genomic information from human cells must be removed as
+well as sequences containing probable sequencing errors and duplicate
+sequences. The quality filtering was done using the following rules:
+(1) a read must be longer than 59 bases (2) a read must not contain
+more than two base positions given as N or any NN pair (3) a read must
+not be identical in more than 97% with any other read in the
+sample. If any of the rules is violated, the read is discarded. Human
+DNA was identified by BLASTing the sequences against human genome
+databases.
+The authors
+stated that "[this] preprocessing was done using custom Perl scripts
+and publicly available software tools".  
+The custom scripts were not available for download, the tools were
+not named, and an e-mail to the corresponding author concerning the
+methods was not answered.
 
-*   created a *filter\_wgs\_reads.py* and then *faster\_filter.py* for
-    proof of concept, but didn't run them on the whole dataset 
-*   downloaded data processed by automatized qiime workflow from
-    MG-RAST (.stats files)
-*   try to recreate findings with this (different?) data
-*   found that even improved mapping files could not identify samples
-    ->  decided to ignore that part
+I thererefore created a Python script *faster\_filter.py* to fulfill
+the filtering rules, but even with the naive approach at finding
+duplicates, the computational time required for a single sample was
+exceptionally high, so it served only as a proof of concept.  
+The authors did not write which, if any, further preprocessing steps
+they took. The metadata file on MG-RAST contains information to link
+the WGS sequences to the IDs of the 16S rRNA reads used in
+analyses 3.2.1 to 3.2.7, but the IDs given in the WGS data differ from
+them expected by the metadata spreadsheet.
+
+Thus it was not possible for me to reconstruct any of the WGS heatmaps
+and clusters given in the original publication.
 
 \clearpage
 
 ## Software used ##
-
-TODO: Integrate properly into methods
 
 The metadata mapping files were created using *LibreOffice* software
 suite version 4.2.4.2.  
 The QIIME workflow was followed using the *QIIME* suite of software
 tools, version 1.8.0 as described by Caporaso et al. [@QIIME].  
 Data analysis and visualization was done using the *R* statistical sofware
-version 3.1.0 [@R], the package *cluster* by Maechler et al. [@cluster] for
-partitioning around medoids
-and the package *e1071* by Meyer et al. [@e1071] for support vector machine
-classifiers.  
+version 3.1.0 [@R]. 
 The custom Python scripts mentioned in the scope of this document can
 be found on
 [my github page](https://github.com/hermann-p/yatsunenko-2012-microbiome).
@@ -370,26 +432,46 @@ be found on
 Discussion
 ==========
 
-Pro:
+Using data from Yatsunenko et al. I tried to reproduce results they
+published in Nature magazine 2012. They searched for patterns inside
+human gut microbiomes found in feces. Their work contains results from
+two datasets, a set of taxonomic data obtained from sampling a region
+of the 16S rRNA in the samples and a set of proteine data from
+sequencing all non-human DNA inside the samples. In addition to the
+main publication, further results and supporting information, that
+was helpful in the reproduction, are provided online.
 
-*   16S data analysis can be reproduced very well, plots virtually identical
-*   conclusions very plausible
-*   vast supplementary data available, so recreation of sample mapping possible
+The analysis of 16S data is very well documented. After recreating the
+metadata file (3.2.1), the graphs and results deduced from the 16S
+data (3.2.4 - 3.2.7) are virtually identical to those published by
+Yatsunenko et al., in the limits of randomness involved in the
+rarefactioning step.  
+The conclusions drawn from those results are plausible. The
+PAM clustering of adults' microbiomes to distinguish western (US)
+samples from non-US samples turned out to be inferior to prediction by
+SVM (3.2.6).  
+One weakness in reproducability is the fact, that no complete usable
+metadatafile is provided. Rebuilding a working one by hand is possible
+with the information provided, but it is error prone and all further
+analysis depends on the connection of samples to their metadata.
+When using participants' ages as plotting coordinates, it became
+apparent that age information for the Malawian population was
+incomplete. ?? of ?? samples had no age information with them, thus
+the visualisation differed from the published images. This leads to
+the conclusion, that metadata was manually edited or transferred to
+the MG-RAST servers after publication.
 
-Con:
+On contrast to the 16S data analysis, the steps for the WGS analysis
+are only vaguely documented. Custom scripts were not provided, applied
+tools were not named. In addition, the genomic data cannot be mapped to
+the samples, making them useless for reproduction efforts.
+Nevertheless, although the WGS analysis is a work- and computationally
+intensive part, it only provides one of the many main results.
 
-*   some minor vaguenesses in the description (eg "distance to all adults")
-*   missing mapping files: this analysis relies very heavily on the mapping
-    between samples and their metadata
-*   no meaningful reproduction of WGS data possible due to lacking mapping file
-    (Gigabytes of data useless because of one metafile)
-*   switch from good description and documentation of 16S data to general,
-	useless statements for WGS analysis ("custom scripts and publicly available
-	tools")
-*   PAM clustering of beta-div not very meaningful, SVM proved a lot
-    better
-*   number of unknown ages among Malawian population. How were the
-    plotted in the original document?
+In conclusion it can be said, that the work has a high degree of
+reproducability. For all analysis that was done, the results and
+images of Yatsunenko et al. could be recreated. Any problems that
+occured originated in the way the data was published.
 
 References
 ==========
