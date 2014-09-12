@@ -5,30 +5,42 @@
 Abstract
 ========
 
-Soon to come...
+In 2012, Yatsunenko et al. published their article "Human Gut
+Microbiome Viewed Across Age and Geography" in Nature magazine. They
+had sequenced and investigated the microbial content of fecal samples
+from 528 humans of different ages from different countries. They found
+signature patterns for western and non-western samples and differences
+for age groups in composition, taxonomy and metabolic functions of
+synthesised proteins. Here I worked on their data to reproduce their
+findings. I downloaded the data from public servers, followed the
+descriptions given in the methods supply paper, and compared my graphs
+and results with the published ones. After manual rebuilding of links
+between sample information and sequence data, I recreated most of the
+main results. Due to missing identification data, I was not able to
+reproduce the protein analysis.
 
 Introduction
 ============
 
 All higher creatures' bodies are populated by microorganisms. These
-microorganisms, beneficial symbionts or pathogenes alike, outnumber
-the body cells by one magnitude. A community of such microorganisms on
-a specified location is called a microbiome. There are a number of
-microbiomes on and inside the human body, for example the community of
+microorganisms, beneficial symbionts and pathogenes alike, outnumber
+human body cells by one magnitude. A community of such microorganisms
+on a specified location is called a microbiome. There are a number of
+microbiomes on and inside the human body, for example the communites of
 skin, lung or mouth bacteriae. Not only do those organisms impact
-their host's individual health, they also provide a source for genetic
-information.  
-Yatsunenku et al. gathered and examined genomic data of 528 fecal
-samples from participants hailing from urban areas in the USA, rural
-areas in Malawi (southeast Africa) and indigenous people from the
-Amazonas region of Venezuela.  
-Taxonomic data was acquired by sequencing only a small region, the V4
-hypervariable region, of the ribosomal 16S rRNA found in the
-feces. This V4 region is diverse enough to allow species
+their host's individual health and influence its metabolism, they also
+provide a source for genetical information.  
+Yatsunenku et al. gathered and examined genomic data of microbiomes in
+528 fecal samples from human participants hailing from urban areas in the
+USA and rural areas in Malawi (southeast Africa), and from indigenous people
+from the Amazonas region of Venezuela.  
+They acquired the taxonomies of microorganisms by sequencing only a small
+region, the V4 hypervariable region, of the ribosomal 16S rRNA found
+in the feces. This V4 region is diverse enough to allow species
 identification and can be located easily because it is surrounded by
 "constant regions", which are strongly conserved across species. The authors
 used the taxonomic data to analyse the microbiome composition
-(relative abundances of taxa) and species richness in each sample.
+(relative abundances of taxa) and species richness in each sample.  
 They further pyrosequenced the whole gene content of 110 of the
 provided samples and analysed the biological functions of encoded
 proteins in the individual samples.  
@@ -112,7 +124,7 @@ correctly. Calling the script produced the following output:
 
 As there are still many unknow microorganism species, a complete
 species-level taxonomy can not always be obtained. Therefore
-Yatsunenko et al. applied followed the QIIME standard protocol,
+Yatsunenko et al. followed the QIIME standard protocol [@QIIME],
 assigning all organisms with at least 97% sequence identity to the
 same operational taxonomic unit (OTU) instead of trying to determine
 all species exactly.
@@ -133,10 +145,9 @@ The first step required is to categorize the sequenced microorganisms
 into groups by phylogenetic distance. This step is called "picking". To
 do this, I used the QIIME tool *pick\_closed\_reference.py*, which
 compares the samples to an existing similarity tree. As picking
-reference I used the GreenGenes database from 2011-02-04, which
-supplies a phylogenetical tree for microorganisms. Following the QIIME
-protocol, as did Yatsunenko et al., samples with more than 97%
-sequence identity were considered the same OTU.
+reference, Yatsunenko et al. used the GreenGenes database from
+2011-02-04, which supplies a phylogenetical tree for
+microorganisms [@ggenes].
 The picking was done on each sample individually, ten samples in
 parallel at any time, by using the custom Python script *picking.py*.
 
@@ -144,7 +155,7 @@ The QIIME tools for $\alpha$-rarefaction and
 $\beta$-diversity-analysis require a single biom table as input file,
 so I combined the picking results. A try to combine all 528 sample
 tables exceeded the computational power available, so I used the
-custom Python script *combine.py* which creates a shell script that
+custom Python script *combine.py* which creates a shell script that repeatedly
 calls the QIIME tool *merge\_otu\_tables.py* to iteratively add
 sample tables to a common table. The QIIME command *biom* was applied
 to convert a copy of this table to a tab-separated file
@@ -154,16 +165,15 @@ The following steps were all done with QIIME tools. To assess species
 richness from the samples, the "rarefaction" technique is used. A
 given population (here: microbiome inside a fecal sample) is
 subsampled to calculate the overall species richness in the population
-while keeping the sample size as small as possible and as big as
-necessary. I used *alpha\_rarefaction.py* to create an overview of
-suitable rarefaction depths.  
-(TODO: nice rarefaction image here)
-The read numbers per sample ranged from 305,631 to 5,826,936, with a mean
-of 1,932,291 and a median of 1,884,081. To guarantee that all samples are
-represented and avoid that small samples would supply all reads
-available, I subsampled 290,603 reads from each sample, the same
-rarefaction depth as was used in the original publication. I repeated
-the rarefactioning ten times, using the tool
+while keeping the sample size as small as possible while still
+acquiring representative read samples. I used *alpha\_rarefaction.py*
+to create an overview of suitable rarefaction depths.  
+The read numbers per fecal sample ranged from 305,631 to 5,826,936,
+with a mean of 1,932,291 and a median of 1,884,081. To guarantee that
+all samples are represented, and to avoid that small samples would
+supply all reads available, I subsampled 290,603 reads from each
+sample, the same rarefaction depth as was used in the original
+publication. I repeated the rarefactioning ten times, using the tool
 *multiple\_rarefaction\_even\_depth.py*.
 
 From those rarefied OTU tables I calculated the $\alpha$- and $\beta$-diversity.
@@ -185,8 +195,8 @@ and programmed methods to access elements of the data conveniently.
 
 ```{r Initialisation, echo=TRUE}
 theCountries <- c("Malawi", "USA", "Venezuela")
-theColors <- c("red", "blue", "green")
-names(theColors) <- theCountries
+theColours <- c("red", "blue", "green")
+names(theColours) <- theCountries
 alphaTable <- read.delim("local_copy/observed_species.csv")
 betaTable <- read.delim("local_copy/unweighted_unifrac_rarefaction_290000_1.txt")
 rownames(betaTable) <- betaTable[,1]; betaTable <- betaTable[,-1]
@@ -256,10 +266,10 @@ for (country in theCountries) {
         betadiv <- getBetaGroup(ids=c(child, adults[[country]]))
         x <- theMetadata[theMetadata$X.SampleID==child,]$Age
         y <- sum(betadiv[child,]) / (nrow(betadiv) - 1)
-        points(x, y, col=theColors[[country]], pch=20)
+        points(x, y, col=theColours[[country]], pch=20)
     }
 }
-legend(x=14, y=1.0, legend=theCountries, text.col=theColors)
+legend(x=14, y=1.0, legend=theCountries, text.col=theColours)
 ```
 
 ## PCoA analysis of $\beta$-diversity ##
@@ -285,7 +295,7 @@ betaChldrn <- getBetaGroup("Age", c(0, 18), range=TRUE)
 clu <- pam(betaAdults, diss=TRUE, k=3, keep.diss=TRUE)
 clu2 <- pam(betaChldrn, diss=TRUE, k=3, keep.diss=TRUE)
 clusplot(clu, col.p=c("red","blue","green")[theMetadata[names(clu$clustering),]$Country], main="")
-legend(x=-0.48, y=0.3, legend=theCountries, text.col=theColors)
+legend(x=-0.48, y=0.3, legend=theCountries, text.col=theColours)
  # note: color order is different, because the pamobject$clustering vector has a different order
 contTable <- table(clu$clustering,
 theMetadata[names(clu$clustering),]$Country)
@@ -299,7 +309,7 @@ I also clustered the children's distance measures with the same method.
 
 ```{r ClusteringChildren, cache=TRUE, echo=FALSE, fig.cap="PCuA of beta-diversity among children shows no clear grouping"}
 clusplot(clu2, col.p=c("red","blue","green")[theMetadata[names(clu$clustering),]$Country], main="")
-legend(x=-0.42, y=-0.2, legend=theCountries, text.col=theColors)
+legend(x=-0.42, y=-0.2, legend=theCountries, text.col=theColours)
 ```
 
 ## SVM classificator analysis of $\beta$-diversity ##
@@ -370,7 +380,7 @@ names(counts) <- colnames(alpha)
 x <- theMetadata[names(counts),]$Age
 cols <- c("red", "blue", "green")[theMetadata[names(counts),]$Country]
 plot(x, counts, col=cols, pch=20, ylab="Number of OTUs", xlab="Age", lab=c(20, 6, 7))
-legend(x=55, y=500, legend=theCountries, text.col=theColors)
+legend(x=55, y=500, legend=theCountries, text.col=theColours)
 ```
 
 
@@ -380,10 +390,11 @@ Yatsunenko et al. sequenced the whole gene sequences (WGS) of 110 samples
 out of the 528 that were taken, without making clear if there was a
 method of choosing or if the 110 samples were picked at random. They
 compared the proteins encoded in the microbiotas'
-sequences from these samples against KEGG and ???? protein databases
-to analyse the encoded proteins for their functions and found distinct
-patterns that distinguished microbiomes from US citizens from non-US
-citizens concerning metabolic functions.
+sequences from these samples against the Kyoto Encyclopedia of Genes
+and Genomes (KEGG) and Clusters of Orthologous Groups (COG) protein
+databases to analyse the encoded proteins for their functions and
+found distinct patterns that distinguished microbiomes from US
+citizens from non-US citizens concerning metabolic functions.
 
 Before the raw sequences can be matched with databases, they need to
 be prepared. Genomic information from human cells must be removed as
@@ -409,8 +420,9 @@ exceptionally high, so it served only as a proof of concept.
 The authors did not write which, if any, further preprocessing steps
 they took. The metadata file on MG-RAST contains information to link
 the WGS sequences to the IDs of the 16S rRNA reads used in
-analyses 3.2.1 to 3.2.7, but the IDs given in the WGS data differ from
-them expected by the metadata spreadsheet.
+analyses 3.2.1 to 3.2.7 and to the respective metadata, but the IDs
+given in the WGS data differ from those expected by the metadata
+spreadsheet.
 
 Thus it was not possible for me to reconstruct any of the WGS heatmaps
 and clusters given in the original publication.
@@ -420,14 +432,12 @@ and clusters given in the original publication.
 ## Software used ##
 
 The metadata mapping files were created using *LibreOffice* software
-suite version 4.2.4.2.  
-The QIIME workflow was followed using the *QIIME* suite of software
-tools, version 1.8.0 as described by Caporaso et al. [@QIIME].  
-Data analysis and visualization was done using the *R* statistical sofware
-version 3.1.0 [@R]. 
-The custom Python scripts mentioned in the scope of this document can
-be found on
-[my github page](https://github.com/hermann-p/yatsunenko-2012-microbiome).
+suite version 4.2.4.2. The QIIME workflow was followed using the
+*QIIME* suite of software tools, version 1.8.0 as described by
+Caporaso et al. [@QIIME]. Data analysis and visualisation was done
+using the *R* statistical sofware version 3.1.0 [@R]. The custom
+Python scripts mentioned in the scope of this document can be found on
+[my github page (https://github.com/hermann-p/yatsunenko-2012-microbiome)](https://github.com/hermann-p/yatsunenko-2012-microbiome).
 
 Discussion
 ==========
@@ -441,19 +451,19 @@ sequencing all non-human DNA inside the samples. In addition to the
 main publication, further results and supporting information, that
 was helpful in the reproduction, are provided online.
 
-The analysis of 16S data is very well documented. After recreating the
+The analysis of 16S data was very well documented. After recreating the
 metadata file (3.2.1), the graphs and results deduced from the 16S
-data (3.2.4 - 3.2.7) are virtually identical to those published by
+data (3.2.4 - 3.2.7) were virtually identical to those published by
 Yatsunenko et al., in the limits of randomness involved in the
 rarefactioning step.  
-The conclusions drawn from those results are plausible. The
+The conclusions drawn from those results were plausible. The
 PAM clustering of adults' microbiomes to distinguish western (US)
 samples from non-US samples turned out to be inferior to prediction by
 SVM (3.2.6).  
-One weakness in reproducability is the fact, that no complete usable
-metadatafile is provided. Rebuilding a working one by hand is possible
+One weakness in reproducability was the fact, that no complete usable
+metadatafile is provided. Rebuilding a working one by hand was possible
 with the information provided, but it is error prone and all further
-analysis depends on the connection of samples to their metadata.
+analysis depended on the connection of samples to their metadata.
 When using participants' ages as plotting coordinates, it became
 apparent that age information for the Malawian population was
 incomplete. ?? of ?? samples had no age information with them, thus
@@ -462,13 +472,13 @@ the conclusion, that metadata was manually edited or transferred to
 the MG-RAST servers after publication.
 
 On contrast to the 16S data analysis, the steps for the WGS analysis
-are only vaguely documented. Custom scripts were not provided, applied
+were only vaguely documented. Custom scripts were not provided, applied
 tools were not named. In addition, the genomic data cannot be mapped to
 the samples, making them useless for reproduction efforts.
 Nevertheless, although the WGS analysis is a work- and computationally
-intensive part, it only provides one of the many main results.
+intensive part, it only provided one of the many main results.
 
-In conclusion it can be said, that the work has a high degree of
+In conclusion it can be said, that the work had a high degree of
 reproducability. For all analysis that was done, the results and
 images of Yatsunenko et al. could be recreated. Any problems that
 occured originated in the way the data was published.
